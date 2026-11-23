@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="応用情報">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>応用情報 学習管理</title>
+<style>
+:root{
+  --bg:#f5f4f0;--card:#fff;--ink:#1c1c1e;--sub:#6e6e73;--faint:#9a9aa0;--line:#e5e3dc;
+  --accent:#2563d9;--accent-ink:#fff;--accent-weak:#e9f0fc;
+  --subtrack:#7448c9;--subtrack-weak:#f1ebfb;
+  --good:#1e8a4a;--good-weak:#e4f3e9;--warn:#ad6600;--warn-weak:#fbf0dc;--bad:#c4372b;--bad-weak:#fbe8e6;
+  --radius:14px;--tabh:56px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#111214;--card:#1c1d20;--ink:#f2f2f4;--sub:#a1a1a8;--faint:#76767d;--line:#2e2f34;
+    --accent:#6f9fff;--accent-ink:#0b1730;--accent-weak:#1b2640;
+    --subtrack:#b597ff;--subtrack-weak:#2a2140;
+    --good:#4cc27c;--good-weak:#15301f;--warn:#e9a640;--warn-weak:#33270f;--bad:#ff7d71;--bad-weak:#3a1a17;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Noto Sans CJK JP",sans-serif;
+  font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+body{padding-bottom:calc(var(--tabh) + env(safe-area-inset-bottom) + 16px)}
+body.setup{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+#topbar{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 12px) 18px 8px}
+#topbar h1{margin:0;font-size:24px;font-weight:700;letter-spacing:.01em}
+#topbar .date{font-size:14px;color:var(--sub);font-weight:500}
+main{padding:4px 14px 8px;max-width:560px;margin:0 auto}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin:0 0 12px;border:1px solid var(--line)}
+.card h2{font-size:15px;margin:0 0 10px;color:var(--sub);font-weight:600;display:flex;align-items:center;gap:8px}
+.card h2 .tag.right{margin-left:auto}
+a{color:var(--accent)}
+.muted{color:var(--sub)}
+.small{font-size:13px}
+.tiny{font-size:12px}
+.row{display:flex;align-items:center;gap:10px}
+.spacer{flex:1}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--accent-weak);color:var(--accent);white-space:nowrap}
+.tag.sub{background:var(--subtrack-weak);color:var(--subtrack)}
+.tag.good{background:var(--good-weak);color:var(--good)}
+.tag.warn{background:var(--warn-weak);color:var(--warn)}
+.tag.bad{background:var(--bad-weak);color:var(--bad)}
+.tag.plain{background:transparent;border:1px solid var(--line);color:var(--sub)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.bar.subbar>i{background:var(--subtrack)}
+.count{display:flex;gap:10px}
+.count>div{flex:1;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.count .lbl{font-size:12px;color:var(--sub);font-weight:600}
+.count .num{font-size:26px;font-weight:700;line-height:1.2}
+.count .num small{font-size:13px;font-weight:600;color:var(--sub);margin-left:2px}
+.count .when{font-size:12px;color:var(--faint)}
+.status{font-size:14px;font-weight:600}
+.status.good{color:var(--good)}.status.warn{color:var(--warn)}.status.bad{color:var(--bad)}
+.task-title{font-size:20px;font-weight:700;line-height:1.3;margin:2px 0}
+.task-sub{font-size:14px;color:var(--sub)}
+.seclist{list-style:none;margin:10px 0 0;padding:0;border-top:1px solid var(--line)}
+.seclist li{display:flex;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.seclist li:last-child{border-bottom:0}
+.seclist .sid{font-variant-numeric:tabular-nums;color:var(--sub);min-width:34px;font-weight:600}
+.seclist .stitle{flex:1}
+.seclist .note{font-size:12px;color:var(--faint);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:15px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.subc{background:var(--subtrack);border-color:var(--subtrack);color:#fff}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.ghost{background:transparent}
+.btn.block{display:flex;width:100%}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px;border-radius:10px}
+.btn:disabled{opacity:.45}
+.btns{display:flex;gap:8px;margin-top:12px}
+.btns>.btn{flex:1}
+.banner{border-radius:var(--radius);padding:12px 14px;margin:0 0 12px;font-size:14px;display:flex;gap:10px;align-items:center}
+.banner.warn{background:var(--warn-weak);color:var(--warn)}
+.banner.info{background:var(--accent-weak);color:var(--accent)}
+.banner .btn{min-height:34px;padding:0 12px;font-size:13px;margin-left:auto;flex:none}
+.rv{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.rv:last-child{border-bottom:0;padding-bottom:0}
+.rv:first-of-type{padding-top:0}
+.rv .t{flex:1;font-size:15px}
+.rv .d{font-size:12px;color:var(--sub)}
+.rv .d.late{color:var(--bad);font-weight:600}
+.chapter{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin:0 0 10px;overflow:hidden}
+.ch-head{display:flex;gap:12px;align-items:center;padding:14px 16px 10px;width:100%;background:none;border:0;text-align:left}
+.ch-no{width:30px;height:30px;border-radius:9px;background:var(--accent-weak);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none;font-size:15px}
+.ch-no.sub{background:var(--subtrack-weak);color:var(--subtrack)}
+.ch-title{flex:1;font-weight:600;line-height:1.35}
+.ch-title small{display:block;font-weight:400;color:var(--sub);font-size:12px;margin-top:2px}
+.ch-pct{font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
+.chapter .bar{margin:0 16px 12px}
+.secs{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.secs li{border-bottom:1px solid var(--line)}
+.secs li:last-child{border-bottom:0}
+.secs button{display:flex;gap:10px;align-items:center;width:100%;padding:11px 16px;background:none;border:0;text-align:left;font-size:15px}
+.secs .sid{font-variant-numeric:tabular-nums;color:var(--sub);min-width:36px;font-weight:600;font-size:14px}
+.secs .stitle{flex:1;line-height:1.35}
+.secs .pg{font-size:12px;color:var(--faint);white-space:nowrap}
+.mark{min-width:28px;text-align:center;font-weight:700;font-size:16px}
+.m3{color:var(--good)}.m2{color:var(--accent)}.m1{color:var(--warn)}.mp{font-size:11px;color:var(--sub);font-weight:600}
+.weeks{display:flex;align-items:flex-end;gap:6px;height:120px;margin:8px 0 4px;position:relative}
+.weeks .w{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.weeks .w i{display:block;width:100%;background:var(--accent);border-radius:6px 6px 2px 2px;min-height:2px}
+.weeks .w.cur i{background:var(--accent)}
+.weeks .w:not(.cur) i{opacity:.55}
+.weeks .goal{position:absolute;left:0;right:0;border-top:1.5px dashed var(--faint)}
+.wlabels{display:flex;gap:6px}
+.wlabels span{flex:1;text-align:center;font-size:11px;color:var(--faint)}
+.kv{display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:0}
+.kv>span:first-child{flex:none;margin-right:14px;color:var(--sub)}
+.kv>span:last-child{text-align:right}
+.loglist{list-style:none;margin:0;padding:0}
+.loglist li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.loglist li:last-child{border-bottom:0}
+.loglist .ld{color:var(--sub);font-size:12px;min-width:74px}
+.loglist .lt{flex:1}
+.loglist .lm{font-weight:600;font-variant-numeric:tabular-nums}
+.x{width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--faint);font-size:18px;line-height:1}
+label.f{display:block;margin:0 0 12px}
+label.f>span{display:block;font-size:13px;color:var(--sub);font-weight:600;margin-bottom:4px}
+input[type=number],input[type=date],input[type=text],select,textarea{width:100%;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:16px}
+textarea{min-height:90px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pgrid{display:grid;grid-template-columns:1fr 96px;gap:8px 10px;align-items:center}
+.pgrid .pl{font-size:14px;line-height:1.3}
+.pgrid .pl small{display:block;color:var(--faint);font-size:12px}
+.pgrid input{min-height:40px;padding:8px 10px;text-align:right}
+.pgrid select{min-height:40px;padding:6px 8px}
+details{margin-top:12px}
+details summary{font-size:14px;color:var(--accent);font-weight:600;padding:6px 0;cursor:pointer}
+details .pgrid{margin:8px 0 12px}
+.err{color:var(--bad);font-size:14px;font-weight:600;margin:8px 0 0}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;min-height:38px;border:0;background:transparent;border-radius:9px;font-weight:600;font-size:14px;color:var(--sub)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.under{display:flex;gap:6px}
+.under button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:700;font-size:15px}
+.under button small{font-weight:500;font-size:11px;display:block;color:var(--sub);line-height:1.1}
+.under button.on.u3{background:var(--good-weak);border-color:var(--good);color:var(--good)}
+.under button.on.u2{background:var(--accent-weak);border-color:var(--accent);color:var(--accent)}
+.under button.on.u1{background:var(--warn-weak);border-color:var(--warn);color:var(--warn)}
+.urow{padding:10px 0;border-bottom:1px solid var(--line)}
+.urow:last-child{border-bottom:0}
+.urow .ut{font-size:14px;margin-bottom:6px}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:16px;font-weight:700;flex:none}
+.stepper input{text-align:center;font-weight:700;font-size:18px}
+.stepper .unit{flex:none;color:var(--sub);font-size:14px}
+.checks label{display:flex;gap:10px;align-items:center;padding:8px 0;font-size:15px}
+.checks input{width:20px;height:20px}
+#tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+#tabs button{flex:1;height:var(--tabh);border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:var(--faint)}
+#tabs button svg{width:24px;height:24px}
+#tabs button.on{color:var(--accent)}
+body.setup #tabs{display:none}
+#backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:20;opacity:0;transition:opacity .2s}
+#backdrop.show{opacity:1}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:18px 18px 0 0;
+  max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 18px calc(env(safe-area-inset-bottom) + 18px);
+  transform:translateY(100%);transition:transform .22s ease-out;max-width:600px;margin:0 auto}
+#sheet.show{transform:translateY(0)}
+#sheet .grab{width:40px;height:5px;border-radius:9px;background:var(--line);margin:4px auto 12px}
+#sheet h3{margin:0 0 4px;font-size:19px}
+#sheet .lead{color:var(--sub);font-size:14px;margin:0 0 14px}
+#sheet .sec{margin:16px 0 0}
+#sheet .sec>.lbl{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px}
+#toast{position:fixed;left:50%;bottom:calc(var(--tabh) + env(safe-area-inset-bottom) + 14px);transform:translateX(-50%);z-index:30;
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:90vw;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.setup-wrap{padding:calc(env(safe-area-inset-top) + 28px) 18px 0;max-width:560px;margin:0 auto}
+.setup-wrap h1{font-size:26px;margin:0 0 8px}
+.setup-wrap .steps{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px}
+.setup-wrap p{color:var(--sub);margin:0 0 14px;font-size:15px}
+.setup-wrap ul{padding-left:20px;margin:0 0 16px;color:var(--ink);font-size:15px}
+.setup-wrap li{margin-bottom:6px}
+.empty{color:var(--sub);font-size:14px}
+.pill-good{color:var(--good);font-weight:700}.pill-warn{color:var(--warn);font-weight:700}.pill-bad{color:var(--bad);font-weight:700}
+</style>
+</head>
+<body>
+<header id="topbar"></header>
+<main id="view"></main>
+<nav id="tabs">
+  <button data-action="tab" data-tab="today" aria-label="今日"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M9 14.5l2 2 4-4"/></svg>今日</button>
+  <button data-action="tab" data-tab="book" aria-label="教本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z"/><path d="M12 6.5v13"/></svg>教本</button>
+  <button data-action="tab" data-tab="log" aria-label="記録"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><rect x="5.5" y="11" width="3" height="6" rx="1"/><rect x="10.5" y="7" width="3" height="10" rx="1"/><rect x="15.5" y="4" width="3" height="13" rx="1"/></svg>記録</button>
+  <button data-action="tab" data-tab="settings" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>設定</button>
+</nav>
+<div id="backdrop" hidden></div>
+<div id="sheet" hidden role="dialog" aria-modal="true"></div>
+<div id="toast" hidden></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+<script>
+'use strict';
+const APP_VERSION = '1.1.0';
+
+/* ========== 教本マスタ（令和08年 応用情報技術者 合格教本） ========== */
+const CHAPTERS = [
+  {no:1, title:'基礎理論', track:'main', sections:['集合と論理','情報量と符号化','オートマトン','形式言語','グラフ理論','確率と統計','回帰分析','数値計算','AI（人工知能）']},
+  {no:2, title:'アルゴリズムとプログラミング', track:'main', sections:['リスト','スタックとキュー','木構造','探索アルゴリズム','整列アルゴリズム','再帰法','プログラム言語']},
+  {no:3, title:'ハードウェアとコンピュータ構成要素', track:'main', sections:['ハードウェア','プロセッサアーキテクチャ','プロセッサの高速化技術','メモリアーキテクチャ','入出力アーキテクチャ']},
+  {no:4, title:'システム構成要素', track:'main', sections:['システムの処理形態','クライアントサーバシステム','システムの構成と信頼性設計','高信頼性・高性能システム','ストレージ関連技術','仮想化技術','システムの性能特性と評価','待ち行列理論の適用']},
+  {no:5, title:'ソフトウェア', track:'main', sections:['OSの構成と機能','タスク（プロセス）管理','記憶管理','言語処理ツール','開発ツール','UNIX系OS']},
+  {no:6, title:'データベース', track:'main', sections:['データベース設計','関係データベース','正規化','関係データベースの演算','SQL','データ定義言語','埋込み方式','データベース管理システム','分散データベース','データベース応用','ブロックチェーン']},
+  {no:7, title:'ネットワーク', track:'main', sections:['通信プロトコルの標準化','ネットワーク接続装置と関連技術','データリンク層の制御とプロトコル','ネットワーク層のプロトコルと技術','トランスポート層のプロトコル','アプリケーション層のプロトコル','ネットワークの仮想化技術','無線LAN','通信規格・通信技術']},
+  {no:8, title:'セキュリティ', track:'main', sections:['暗号化','無線LANの暗号','認証','デジタル署名とPKI','セキュリティ実装技術','情報セキュリティの脅威と攻撃手法','情報セキュリティ管理']},
+  {no:9, title:'システム開発技術', track:'main', sections:['開発プロセス・手法','分析・設計手法','オブジェクト指向設計','モジュール設計','テスト','テスト管理手法','レビュー']},
+  {no:10, title:'マネジメント', track:'sub', sections:['プロジェクトマネジメント','スケジュールマネジメントで用いる手法','コストマネジメントで用いる手法','サービスマネジメント','システム監査']},
+  {no:11, title:'ストラテジ', track:'sub', sections:['システム戦略','経営戦略マネジメント','ビジネスインダストリ','経営工学','企業会計','標準化と関連法規']},
+];
+const SECTIONS = [];
+CHAPTERS.forEach(c => c.sections.forEach((t, i) => SECTIONS.push({id:`${c.no}.${i + 1}`, ch:c.no, idx:i, title:t, track:c.track})));
+const SEC = Object.fromEntries(SECTIONS.map(s => [s.id, s]));
+const CH = Object.fromEntries(CHAPTERS.map(c => [c.no, c]));
+const TRACKS = {
+  main:{name:'メイン', range:'1〜9章', desc:'テクノロジ系', defMin:90},
+  sub:{name:'サブ', range:'10〜11章', desc:'マネジメント・ストラテジ', defMin:20},
+};
+const PM_FIELDS = ['情報セキュリティ','経営戦略','プログラミング','システムアーキテクチャ','ネットワーク','データベース','組込みシステム開発','情報システム開発','プロジェクトマネジメント','サービスマネジメント','システム監査'];
+const CAT_LABEL = {main:'メイン', sub:'サブ', review:'復習', am:'午前', pm:'午後', other:'その他'};
+const APPLY_FROM = '2027-01-27', APPLY_TO = '2027-02-16';
+const VIRTUAL_LEN = 10; // ページ未設定時の1節あたりの仮の分量
+const SNAP = 3;         // 節の残りがこのページ数以下なら同じ日に読み切る
+const EPS = 0.01;
+// 章ごとの重さ：丁寧に読む章ほど1日のページ数を少なくする
+const LEVELS = {fast:0.8, normal:1.0, careful:1.3};
+const LEVEL_LABEL = {fast:'速め', normal:'標準', careful:'丁寧'};
+const DEFAULT_LEVEL = {1:'fast', 2:'fast', 3:'normal', 4:'careful', 5:'fast', 6:'normal', 7:'normal', 8:'careful', 9:'normal', 10:'normal', 11:'normal'};
+
+const DEFAULT_SETTINGS = {
+  startDate:'2026-11-24', targetDate:'2026-12-28', phase2Start:'2027-01-05',
+  examA:'2027-02-13', examB:'2027-03-06', examConfirmed:false,
+  adjustWeekday:0, goalWeekday:120, goalHoliday:300,
+  chapterStart:Array(11).fill(null), bodyEnd:null, sectionStart:{},
+  applied:null, baseTargetDate:'2026-12-28',
+  chapterLevel:{...DEFAULT_LEVEL},
+};
+
+/* ========== 小道具 ========== */
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const pad = n => String(n).padStart(2, '0');
+const fmtD = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseD = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate() + n); return fmtD(d); };
+const diffDays = (a, b) => Math.round((parseD(b) - parseD(a)) / 864e5);
+const WD = ['日','月','火','水','木','金','土'];
+const md = s => { const d = parseD(s); return `${d.getMonth() + 1}/${d.getDate()}`; };
+const jpDate = s => { const d = parseD(s); return `${d.getMonth() + 1}/${d.getDate()}（${WD[d.getDay()]}）`; };
+const fmt1 = n => String(Math.round(n * 10) / 10);
+const r2 = n => Math.round(n * 100) / 100;
+const isInt = v => Number.isInteger(v) && v > 0;
+const DEBUG_TODAY = new URLSearchParams(location.search).get('debugToday');
+// 日付の切り替えは午前4時（深夜の勉強は前日分）
+const today = () => DEBUG_TODAY || fmtD(new Date(Date.now() - 4 * 3600e3));
+const hm = min => { const h = Math.floor(min / 60), m = Math.round(min % 60); return h ? (m ? `${h}時間${m}分` : `${h}時間`) : `${m}分`; };
+
+/* ========== 状態と保存（端末内 IndexedDB） ========== */
+let state = null, layout = null, db = null, useLS = false;
+const ui = {tab:'today', open:new Set(), setupStep:1, sheet:null, logFilter:null};
+
+function freshState() {
+  const progress = {};
+  SECTIONS.forEach(x => { progress[x.id] = {frac:0, u:null, doneDate:null, memo:''}; });
+  return {version:2, settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), plan:null, progress, reviews:[], logs:[], exams:[], readLog:[],
+    meta:{createdAt:new Date().toISOString(), setupDone:false, lastExport:null, lastMinutes:{}, persisted:null}};
+}
+function normalize(s) {
+  const base = freshState();
+  if (!s || typeof s !== 'object') return base;
+  const out = {...base, ...s};
+  out.settings = {...base.settings, ...(s.settings || {})};
+  if (!Array.isArray(out.settings.chapterStart) || out.settings.chapterStart.length !== 11) out.settings.chapterStart = Array(11).fill(null);
+  out.settings.sectionStart = out.settings.sectionStart || {};
+  out.progress = {...base.progress};
+  for (const id of Object.keys(base.progress)) if (s.progress && s.progress[id]) out.progress[id] = {...base.progress[id], ...s.progress[id]};
+  out.reviews = Array.isArray(s.reviews) ? s.reviews : [];
+  out.logs = Array.isArray(s.logs) ? s.logs : [];
+  out.exams = Array.isArray(s.exams) ? s.exams : [];
+  out.readLog = Array.isArray(s.readLog) ? s.readLog : [];
+  out.settings.chapterLevel = {...DEFAULT_LEVEL, ...((s.settings && s.settings.chapterLevel) || {})};
+  if (!out.settings.baseTargetDate || (s.settings && !s.settings.baseTargetDate)) out.settings.baseTargetDate = out.settings.targetDate;
+  out.version = 2;
+  out.meta = {...base.meta, ...(s.meta || {})};
+  out.meta.lastMinutes = out.meta.lastMinutes || {};
+  delete out.exportedAt; delete out.app;
+  return out;
+}
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('ap-study', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function loadState() {
+  try {
+    db = await idbOpen();
+    return await new Promise((res, rej) => {
+      const q = db.transaction('kv', 'readonly').objectStore('kv').get('state');
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => rej(q.error);
+    });
+  } catch (e) {
+    useLS = true;
+    try { const raw = localStorage.getItem('ap-study-state'); return raw ? JSON.parse(raw) : null; } catch (e2) { return null; }
+  }
+}
+let saveChain = Promise.resolve();
+function save() {
+  const snapshot = JSON.parse(JSON.stringify(state));
+  saveChain = saveChain.then(() => new Promise(res => {
+    if (useLS || !db) {
+      try { localStorage.setItem('ap-study-state', JSON.stringify(snapshot)); } catch (e) { toast('保存に失敗しました。書き出しでデータを守ってください', 5000); }
+      return res();
+    }
+    try {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(snapshot, 'state');
+      tx.oncomplete = () => res();
+      tx.onerror = tx.onabort = () => { toast('保存に失敗しました。書き出しでデータを守ってください', 5000); res(); };
+    } catch (e) { toast('保存に失敗しました', 4000); res(); }
+  }));
+  return saveChain;
+}
+
+/* ========== ページ配置 ========== */
+function pagesComplete(s) {
+  return s.chapterStart.every(isInt) && isInt(s.bodyEnd);
+}
+function buildLayout(s, weights) {
+  const mode = pagesComplete(s) ? 'pages' : 'virtual';
+  const secs = {};
+  CHAPTERS.forEach((c, ci) => {
+    const n = c.sections.length;
+    if (mode === 'virtual') {
+      c.sections.forEach((_, i) => { secs[`${c.no}.${i + 1}`] = {p1:null, p2:null, len:VIRTUAL_LEN}; });
+      return;
+    }
+    const cs = s.chapterStart[ci];
+    const ceNext = ci < 10 ? s.chapterStart[ci + 1] : s.bodyEnd + 1; // 次の章の開始（＝この章の終わり+1）
+    // 節の開始ページ：入力があればそれを使い、無い所は前後の値から均等に補う
+    const anchors = c.sections.map((_, i) => { const v = s.sectionStart[`${c.no}.${i + 1}`]; return isInt(v) ? v : null; });
+    anchors[0] = cs;
+    let st = anchors.slice();
+    const known = [];
+    st.forEach((v, i) => { if (v !== null) known.push(i); });
+    known.push(n); // 番兵：章の終わり
+    const valAt = i => i === n ? ceNext : st[i];
+    for (let k = 0; k < known.length - 1; k++) {
+      const a = known[k], b = known[k + 1], va = valAt(a), vb = valAt(b);
+      for (let i = a + 1; i < b; i++) st[i] = Math.round(va + (vb - va) * (i - a) / (b - a));
+    }
+    // 単調でなければ均等割りに戻す
+    let ok = true;
+    for (let i = 0; i < n; i++) { const nx = i < n - 1 ? st[i + 1] : ceNext; if (!(nx > st[i])) ok = false; }
+    if (!ok) st = c.sections.map((_, i) => Math.round(cs + (ceNext - cs) * i / n));
+    c.sections.forEach((_, i) => {
+      const p1 = st[i], p2 = (i < n - 1 ? st[i + 1] : ceNext) - 1;
+      secs[`${c.no}.${i + 1}`] = {p1, p2, len:Math.max(1, p2 - p1 + 1)};
+    });
+  });
+  // 計画は「ページ数×章の重さ」（重み付きページ）で割り振る
+  const W = weights || {};
+  const track = {}, wOf = {};
+  for (const tr of ['main', 'sub']) {
+    let off = 0, pages = 0;
+    const list = SECTIONS.filter(x => x.track === tr).map(x => {
+      const L = secs[x.id].len, w = W[x.ch] || 1;
+      wOf[x.id] = w;
+      const o = {id:x.id, start:r2(off), end:r2(off + L * w), w, len:L};
+      off += L * w; pages += L;
+      return o;
+    });
+    track[tr] = {list, total:r2(off), pages};
+  }
+  return {mode, secs, track, wOf, weights:{...W}};
+}
+function refreshLayout() { layout = buildLayout(state.settings, planWeights()); }
+const pagesText = n => layout.mode === 'pages' ? `${Math.round(n)}ページ` : `${fmt1(n / VIRTUAL_LEN)}節`;
+const daysText = d => `約${fmt1(d)}日分`;
+
+/* ========== 進捗 ========== */
+const prog = id => state.progress[id];
+const isDone = id => prog(id).frac >= 1;
+const readPages = id => isDone(id) ? layout.secs[id].len : Math.round(clamp(prog(id).frac, 0, 1) * layout.secs[id].len);
+const trackDone = tr => r2(layout.track[tr].list.reduce((a, x) => a + readPages(x.id) * x.w, 0)); // 重み付き
+const trackPagesLeft = tr => layout.track[tr].list.reduce((a, x) => a + layout.secs[x.id].len - readPages(x.id), 0);
+const rangePages = items => items.reduce((a, x) => a + (x.to - x.from), 0);
+const allRead = () => SECTIONS.every(x => isDone(x.id));
+const chapterDone = no => CH[no].sections.every((_, i) => isDone(`${no}.${i + 1}`));
+const anyProgress = () => SECTIONS.some(x => prog(x.id).frac > 0);
+
+/* ========== 重さ（章ごとの読みやすさ）と実績による補正 ========== */
+const priorWeights = () => Object.fromEntries(CHAPTERS.map(c => [c.no, LEVELS[state.settings.chapterLevel[c.no]] || 1]));
+const planWeights = () => (state.plan && state.plan.weights) || priorWeights();
+// 記録した時間を、そのとき読んだ節に割り振って、章ごとの「ページ数・分数」を集める
+function timeStats() {
+  const prior = priorWeights();
+  const obs = {};
+  CHAPTERS.forEach(c => { obs[c.no] = {pages:0, minutes:0}; });
+  for (const l of state.logs) {
+    if (!l.pages || !(l.minutes > 0)) continue;
+    const ents = Object.entries(l.pages).filter(([id, n]) => SEC[id] && n > 0);
+    const W = ents.reduce((a, [id, n]) => a + prior[SEC[id].ch] * n, 0);
+    if (!(W > 0)) continue;
+    for (const [id, n] of ents) { const ch = SEC[id].ch; obs[ch].pages += n; obs[ch].minutes += l.minutes * prior[ch] * n / W; }
+  }
+  const totP = Object.values(obs).reduce((a, o) => a + o.pages, 0);
+  const totWP = CHAPTERS.reduce((a, c) => a + prior[c.no] * obs[c.no].pages, 0);
+  const totM = Object.values(obs).reduce((a, o) => a + o.minutes, 0);
+  const k = totWP > 0 ? totM / totWP : 0; // 重さ1.0のページ1枚にかかる分数
+  return {prior, obs, k, enough:totP >= 10 && k > 0};
+}
+// 実績で補正した重さ。同じ目安（速め・標準・丁寧）の章どうしは、読んだ章の実績をまだ読んでいない章にも反映する
+function effectiveWeights() {
+  const {prior, obs, k, enough} = timeStats();
+  const w = {...prior}, P0 = 30, MIN = 5;
+  if (!enough) return {w, prior, obs, k:0};
+  const ratio = {};
+  CHAPTERS.forEach(c => { const o = obs[c.no]; if (o.pages >= MIN) ratio[c.no] = (o.minutes / o.pages) / (k * prior[c.no]); });
+  const g = {};
+  for (const lv of Object.keys(LEVELS)) {
+    const chs = CHAPTERS.filter(c => state.settings.chapterLevel[c.no] === lv && ratio[c.no] !== undefined);
+    const num = chs.reduce((a, c) => a + ratio[c.no] * obs[c.no].pages, 0), den = chs.reduce((a, c) => a + obs[c.no].pages, 0);
+    g[lv] = (num + P0) / (den + P0);
+  }
+  CHAPTERS.forEach(c => {
+    const gl = g[state.settings.chapterLevel[c.no]] ?? 1, o = obs[c.no];
+    const f = ratio[c.no] !== undefined ? (ratio[c.no] * o.pages + gl * P0) / (o.pages + P0) : gl;
+    w[c.no] = r2(clamp(prior[c.no] * f, 0.4, 2.5));
+  });
+  return {w, prior, obs, k};
+}
+
+/* ========== 計画 ========== */
+function planDays(from, to, adjustWd) {
+  const out = [];
+  if (!from || !to || to < from) return out;
+  for (let d = from; d <= to; d = addDays(d, 1)) if (parseD(d).getDay() !== adjustWd) out.push(d);
+  return out;
+}
+// 区切りが節の途中に来たとき：残りが少なければ節の終わりまで、読み始めが少しだけなら節の手前で止める
+function snapOffset(tr, c, prev) {
+  const sec = layout.track[tr].list.find(x => c > x.start + EPS && c < x.end - EPS);
+  if (!sec) return c;
+  const lim = layout.mode === 'virtual' ? (sec.end - sec.start) / 2 : SNAP * sec.w;
+  if (sec.end - c <= lim + EPS) return sec.end;
+  if (c - sec.start <= lim + EPS && (sec.start > prev + EPS || layout.mode === 'virtual')) return sec.start;
+  return c;
+}
+function makePlan(from, to, base) {
+  const days = planDays(from, to, state.settings.adjustWeekday);
+  const plan = {createdAt:new Date().toISOString(), from, to, days, base:{...base}, tracks:{}, origAvg:null, origAvgPages:null, weights:{...layout.weights}};
+  for (const tr of ['main', 'sub']) {
+    const total = layout.track[tr].total, b = Math.min(base[tr] || 0, total), rem = total - b, N = days.length;
+    const cum = [];
+    let prev = b;
+    for (let i = 0; i < N; i++) {
+      let c = i === N - 1 ? total : r2(b + rem * (i + 1) / N);
+      c = r2(clamp(Math.max(snapOffset(tr, c, prev), prev), 0, total));
+      cum.push(c); prev = c;
+    }
+    plan.tracks[tr] = {cum, avg:N ? rem / N : rem};
+  }
+  return plan;
+}
+// 当初のペース（開始日〜最初に決めた目標日）。組み直しの「1.3倍」や先行・遅れの日数の基準
+function origPace(L = layout) {
+  const s = state.settings;
+  const N = Math.max(1, planDays(s.startDate, s.baseTargetDate || s.targetDate, s.adjustWeekday).length);
+  const origAvg = {}, origAvgPages = {};
+  for (const tr of ['main', 'sub']) { origAvg[tr] = L.track[tr].total / N; origAvgPages[tr] = L.track[tr].pages / N; }
+  return {origAvg, origAvgPages};
+}
+// mode: 'baseline' = 開始日から作り直す / 'fromToday' = 今日から組み直す。どちらも実績で補正した重さを使う
+function rebuildPlan(mode) {
+  const s = state.settings, t = today();
+  layout = buildLayout(s, effectiveWeights().w);
+  let p;
+  if (mode === 'baseline' || t <= s.startDate || !anyProgress()) p = makePlan(s.startDate, s.targetDate, {main:0, sub:0});
+  else p = makePlan(t, s.targetDate >= t ? s.targetDate : addDays(s.phase2Start, -1), {main:trackDone('main'), sub:trackDone('sub')});
+  Object.assign(p, origPace());
+  state.plan = p;
+}
+function expectedThrough(tr, date) {
+  const p = state.plan;
+  let v = p.base[tr] || 0;
+  for (let i = 0; i < p.days.length; i++) { if (p.days[i] <= date) v = p.tracks[tr].cum[i]; else break; }
+  return v;
+}
+function todayTarget(tr, t, done, total) {
+  const p = state.plan, s = state.settings;
+  const idx = p.days.indexOf(t);
+  if (idx >= 0) return {target:p.tracks[tr].cum[idx], kind:'plan'};
+  if (t < p.from) return {target:p.base[tr] || 0, kind:'before'};
+  if (t > p.to) {
+    if (done >= total - EPS) return {target:total, kind:'after'};
+    if (t < s.phase2Start) {
+      const left = diffDays(t, addDays(s.phase2Start, -1)) + 1;
+      return {target:Math.min(total, r2(done + (total - done) / left)), kind:'buffer'};
+    }
+    return {target:Math.min(total, r2(done + origAvg(tr))), kind:'leftover'};
+  }
+  return {target:expectedThrough(tr, addDays(t, -1)), kind:'adjust'};
+}
+const origAvg = tr => Math.max(0.5, (state.plan && state.plan.origAvg && state.plan.origAvg[tr]) || 1);
+const nz = v => v < 0.05 ? 0 : v;
+function trackStatus(tr, t) {
+  const total = layout.track[tr].total, done = trackDone(tr), avg = origAvg(tr);
+  if (!state.plan) return {tr, total, done, need:0, behind:0, ahead:0, inc:0, avg, kind:'none', target:0};
+  const tt = todayTarget(tr, t, done, total);
+  const expY = ['plan', 'adjust', 'before'].includes(tt.kind) ? expectedThrough(tr, addDays(t, -1)) : total;
+  const target = Math.min(total, tt.target);
+  const inc = tt.kind === 'plan' ? expectedThrough(tr, t) - expectedThrough(tr, addDays(t, -1)) : 0;
+  return {tr, total, done, avg, kind:tt.kind, target, inc:nz(inc),
+    behind:nz(expY - done), need:nz(target - done), ahead:nz(done - target)};
+}
+function statusText(st) {
+  const left = trackPagesLeft(st.tr);
+  if (left <= 0) return {cls:'good', text:'読了'};
+  if (st.kind === 'before') return {cls:'', text:`${jpDate(state.plan.from)}から開始`};
+  if (st.kind === 'buffer') return {cls:'warn', text:`目標日を過ぎています（残り${pagesText(left)}）`};
+  if (st.kind === 'leftover') return {cls:'warn', text:`積み残し ${pagesText(left)}`};
+  if (st.behind > 0) return {cls:st.behind / st.avg > 2 ? 'bad' : 'warn', text:`${daysText(st.behind / st.avg)}の遅れ`};
+  if (st.need === 0 && st.inc === 0 && st.ahead === 0) return {cls:'', text:'予定どおり（今日は予定なし）'};
+  if (st.need === 0) return {cls:'good', text:st.ahead / st.avg >= 0.1 ? `今日の分まで完了・${daysText(st.ahead / st.avg)}先行` : '今日の分まで完了'};
+  return {cls:'', text:`予定どおり（今日は残り${pagesText(rangePages(buildRange(st.tr, st.need)))}）`};
+}
+// 先頭の未読から need（重み付き）分を集める。節の残りが少なければ読み切る
+function buildRange(tr, need) {
+  const items = [];
+  let left = need;
+  for (const x of layout.track[tr].list) {
+    if (left <= EPS) break;
+    if (isDone(x.id)) continue;
+    const L = layout.secs[x.id].len, r = readPages(x.id), avail = L - r;
+    if (avail <= 0) continue;
+    let take;
+    if (layout.mode === 'virtual') {
+      if (items.length && left < L * x.w / 2) break;
+      take = avail; // ページ未設定のときは節単位で読む
+    } else {
+      take = Math.min(avail, Math.ceil(left / x.w - 1e-6));
+      if (avail - take <= SNAP) take = avail;
+      else if (items.length && take <= SNAP) break; // 次の節を数ページだけ読むことはしない
+    }
+    items.push({id:x.id, from:r, to:r + take, len:L});
+    left -= take * x.w;
+  }
+  return items;
+}
+// 直近7日の実際のペース（重み付き）から、読み終わる日を予測する
+function forecast(tr, t) {
+  const s = state.settings;
+  if (t < s.startDate) return null;
+  const isTr = e => SEC[e.id] && SEC[e.id].track === tr;
+  const readToday = state.readLog.some(e => e.date === t && e.pages > 0 && isTr(e));
+  const end = readToday ? t : addDays(t, -1);
+  const ws = s.startDate > addDays(end, -6) ? s.startDate : addDays(end, -6);
+  const days = diffDays(ws, end) + 1;
+  if (days < 3) return null;
+  const ents = state.readLog.filter(e => e.date >= ws && e.date <= end && isTr(e));
+  const readDays = new Set(ents.filter(e => e.pages > 0).map(e => e.date)).size;
+  const units = ents.reduce((a, e) => a + e.pages * (layout.wOf[e.id] || 1), 0);
+  if (readDays < 2 || units <= 0) return null;
+  const rem = layout.track[tr].total - trackDone(tr);
+  if (rem <= EPS) return {done:true};
+  const n = Math.ceil(rem / (units / days) - 1e-6);
+  const date = addDays(t, readToday ? n : n - 1);
+  return {date, late:diffDays(s.targetDate, date)};
+}
+function rangeTitle(items) {
+  if (!items.length) return '';
+  const a = items[0], b = items[items.length - 1];
+  return a.id === b.id ? `${a.id} ${SEC[a.id].title}` : `${a.id}〜${b.id}`;
+}
+function rangeSub(items) {
+  const total = items.reduce((s, x) => s + (x.to - x.from), 0);
+  if (layout.mode === 'pages') {
+    const a = items[0], b = items[items.length - 1];
+    const p1 = layout.secs[a.id].p1 + a.from, p2 = layout.secs[b.id].p1 + b.to - 1;
+    return `p.${p1}–${p2}（${total}ページ）`;
+  }
+  return `${items.length}節（ページ未設定）`;
+}
+function itemNote(it) {
+  const parts = [];
+  if (it.from > 0) parts.push('続きから');
+  if (it.to < it.len) parts.push('途中まで');
+  if (layout.mode === 'pages') {
+    const p1 = layout.secs[it.id].p1;
+    parts.push(`p.${p1 + it.from}–${p1 + it.to - 1}`);
+  } else if (parts.length === 0) parts.push('全体');
+  return parts.join('・');
+}
+const chunkSize = tr => Math.max(1, Math.round(origAvg(tr)));
+// 今日のタスクの量。遅れが大きい日は2日分に区切り、残りは「組み直す」に任せる
+function todayNeed(st) {
+  const cap = Math.ceil(st.avg * 2);
+  if (['plan', 'adjust'].includes(st.kind) && st.need > cap) return {need:cap, capped:true};
+  return {need:st.need, capped:false};
+}
+function computePhase(t) {
+  const s = state.settings;
+  if (t > s.examB) return 'done';
+  if (t > s.examA) return 'p3';
+  if (allRead() || t >= s.phase2Start) return 'p2';
+  return 'p1';
+}
+
+/* ========== 復習 ========== */
+function addReview(type, target, due, gen = 1) {
+  if (state.reviews.some(r => r.type === type && r.target === target && r.gen === gen)) return;
+  state.reviews.push({id:uid(), type, target, due, gen, done:null, correct:null});
+}
+function ensureReread(id, t) {
+  if (state.reviews.some(r => r.type === 'reread' && r.target === id && !r.done)) return;
+  const gen = state.reviews.filter(r => r.type === 'reread' && r.target === id).length + 1;
+  addReview('reread', id, addDays(t, 3), gen);
+}
+function afterSectionsDone(ids, t) {
+  const chs = new Set();
+  ids.forEach(id => {
+    if (prog(id).u === 1) ensureReread(id, t);
+    chs.add(SEC[id].ch);
+  });
+  chs.forEach(no => {
+    if (chapterDone(no) && !state.reviews.some(r => r.type === 'recap' && r.target === String(no))) {
+      addReview('recap', String(no), addDays(t, 1));
+      addReview('drill', String(no), addDays(t, 7), 1);
+    }
+  });
+}
+function reviewLabel(r) {
+  if (r.type === 'recap') return `${r.target}章の見直し（△の節と自分のメモ）`;
+  if (r.type === 'drill') return `${r.target}章「${CH[r.target].title}」の午前過去問を10問${r.gen > 1 ? '（もう一度）' : ''}`;
+  return `${r.target} ${SEC[r.target].title} を読み直す`;
+}
+const reviewMin = r => r.type === 'drill' ? 20 : 15;
+const dueReviews = t => state.reviews.filter(r => !r.done && r.due <= t).sort((a, b) => a.due.localeCompare(b.due));
+
+/* ========== 記録 ========== */
+function addLog(date, minutes, cat, note = '', pages = null) {
+  if (!(minutes > 0)) return;
+  const l = {id:uid(), date, minutes:Math.round(minutes), cat, note, at:new Date().toISOString()};
+  if (pages && Object.keys(pages).length) l.pages = pages; // 実績の速さの計算に使う
+  state.logs.push(l);
+}
+function logRead(date, id, before) {
+  const d = readPages(id) - before;
+  if (d !== 0) state.readLog.push({date, id, pages:d});
+  return d;
+}
+const weekStart = t => { const wd = (parseD(t).getDay() + 6) % 7; return addDays(t, -wd); };
+function weeklyGoal() {
+  const s = state.settings;
+  let g = 0;
+  for (let wd = 0; wd < 7; wd++) g += wd === s.adjustWeekday ? 0 : (wd === 0 || wd === 6) ? s.goalHoliday : s.goalWeekday;
+  return g;
+}
+const minutesBetween = (a, b) => state.logs.filter(l => l.date >= a && l.date <= b).reduce((s, l) => s + l.minutes, 0);
+function streak(t) {
+  const days = new Set(state.logs.map(l => l.date));
+  let d = days.has(t) ? t : addDays(t, -1), n = 0;
+  while (days.has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+
+/* ========== 画面：共通 ========== */
+function render() {
+  if (!state) return;
+  document.body.classList.toggle('setup', !state.meta.setupDone);
+  if (!state.meta.setupDone) { $('#topbar').innerHTML = ''; $('#view').innerHTML = renderSetup(); return; }
+  const t = today();
+  const titles = {today:'今日', book:'教本', log:'記録', settings:'設定'};
+  $('#topbar').innerHTML = `<div class="date">${ui.tab === 'today' ? jpDate(t) : '応用情報 学習管理'}</div><h1>${titles[ui.tab]}</h1>`;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
+  const fn = {today:renderToday, book:renderBook, log:renderLog, settings:renderSettings}[ui.tab];
+  $('#view').innerHTML = fn(t);
+}
+function toast(msg, ms = 2200) {
+  const el = $('#toast');
+  el.textContent = msg; el.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.hidden = true; }, ms);
+}
+function openSheet(html) {
+  const sh = $('#sheet'), bd = $('#backdrop');
+  sh.innerHTML = `<div class="grab"></div>${html}`;
+  sh.hidden = false; bd.hidden = false;
+  sh.scrollTop = 0;
+  requestAnimationFrame(() => { sh.classList.add('show'); bd.classList.add('show'); });
+}
+function refreshSheet(html) { $('#sheet').innerHTML = `<div class="grab"></div>${html}`; }
+function closeSheet() {
+  const sh = $('#sheet'), bd = $('#backdrop');
+  sh.classList.remove('show'); bd.classList.remove('show');
+  ui.sheet = null;
+  setTimeout(() => { if (!sh.classList.contains('show')) { sh.hidden = true; bd.hidden = true; sh.innerHTML = ''; } }, 230);
+}
+const underButtons = (cur, act, extra = '') => `<div class="under">${[[3, '◎', 'よく分かった'], [2, '○', 'だいたい'], [1, '△', '不安']]
+  .map(([v, m, l]) => `<button class="u${v} ${cur === v ? 'on' : ''}" data-action="${act}" data-v="${v}" ${extra}>${m}<small>${l}</small></button>`).join('')}</div>`;
+const stepper = (id, val, step, unit, min = 0, max = 999) => `<div class="stepper"><button data-action="step" data-for="${id}" data-d="${-step}" data-min="${min}" data-max="${max}">−</button><input type="number" inputmode="numeric" id="${id}" value="${val}" min="${min}" max="${max}"><button data-action="step" data-for="${id}" data-d="${step}" data-min="${min}" data-max="${max}">＋</button><span class="unit">${unit}</span></div>`;
+
+/* ========== 画面：今日 ========== */
+function renderToday(t) {
+  const s = state.settings, phase = computePhase(t);
+  let h = banners(t);
+  h += countdown(t);
+  if (phase === 'done') {
+    h += `<div class="card"><div class="task-title">試験おつかれさまでした</div><p class="muted small" style="margin:6px 0 0">記録はこのまま残ります。必要なら設定から書き出してください。</p></div>`;
+    return h + reviewsCard(t);
+  }
+  if (phase === 'p1') {
+    h += progressCard(t);
+    h += trackCard('main', t) + trackCard('sub', t);
+  } else {
+    for (const tr of ['main', 'sub']) if (trackPagesLeft(tr) > 0) h += trackCard(tr, t, true);
+    h += phaseCard(phase, t);
+  }
+  h += reviewsCard(t);
+  return h;
+}
+function banners(t) {
+  const s = state.settings;
+  let h = '';
+  if (!s.applied && t >= APPLY_FROM && t <= APPLY_TO) {
+    h += `<div class="banner warn"><div><b>申込受付中</b>（〜${jpDate(APPLY_TO)}）。科目A・Bの受験日を予約したら、設定で日付を直してください。</div><button class="btn" data-action="mark-applied">申込済み</button></div>`;
+  } else if (!s.applied && t >= addDays(APPLY_FROM, -7) && t < APPLY_FROM) {
+    h += `<div class="banner info"><div>${jpDate(APPLY_FROM)}から申込受付が始まります（〜${jpDate(APPLY_TO)}）。</div></div>`;
+  }
+  const last = state.meta.lastExport;
+  const since = last ? diffDays(last.slice(0, 10), t) : diffDays(state.meta.createdAt.slice(0, 10), t);
+  if (anyProgress() && since >= 7) {
+    h += `<div class="banner info"><div>${last ? `最後の書き出しから${since}日たちました。` : 'まだ一度も書き出していません。'}アプリを消すとデータも消えるので、書き出しておきましょう。</div><button class="btn" data-action="export">書き出す</button></div>`;
+  }
+  return h;
+}
+function countdown(t) {
+  const s = state.settings;
+  const box = (lbl, d) => {
+    const n = diffDays(t, d);
+    const num = n > 0 ? `${n}<small>日</small>` : n === 0 ? '今日' : '終了';
+    return `<div><div class="lbl">${lbl}まで</div><div class="num">${num}</div><div class="when">${jpDate(d)}${s.examConfirmed ? '' : '（仮）'}</div></div>`;
+  };
+  return `<div class="count" style="margin-bottom:12px">${box('科目A', s.examA)}${box('科目B', s.examB)}</div>`;
+}
+function progressCard(t) {
+  const total = layout.track.main.pages + layout.track.sub.pages;
+  const left = trackPagesLeft('main') + trackPagesLeft('sub');
+  const pct = total ? Math.floor((total - left) / total * 100) : 0;
+  const sts = ['main', 'sub'].map(tr => trackStatus(tr, t));
+  const rows = sts.map(st => {
+    const tx = statusText(st);
+    return `<div class="row" style="margin-top:8px"><span class="tag ${st.tr === 'sub' ? 'sub' : ''}">${TRACKS[st.tr].name}</span><span class="status ${tx.cls}">${esc(tx.text)}</span></div>`;
+  }).join('');
+  const fc = ['main', 'sub'].map(tr => ({tr, f:forecast(tr, t)}));
+  let fcLine;
+  if (fc.every(x => x.f === null)) fcLine = '<div class="small muted" style="margin-top:10px">3日分の記録がたまると、今のペースでいつ読み終わるかを予測します。</div>';
+  else fcLine = `<div class="small" style="margin-top:10px"><span class="muted">今のペースなら </span>${fc.map(x => {
+    const n = TRACKS[x.tr].name;
+    if (!x.f) return `${n} <span class="muted">予測なし</span>`;
+    if (x.f.done) return `${n} <span class="pill-good">読了</span>`;
+    return `${n} <b class="${x.f.late > 0 ? 'pill-bad' : 'pill-good'}">${jpDate(x.f.date)}</b>`;
+  }).join('・')}<span class="muted"> に読み終わる見込み</span></div>`;
+  const inPlan = st => ['plan', 'adjust'].includes(st.kind);
+  const behindBig = sts.some(st => inPlan(st) && st.behind / st.avg > 2);
+  const lateFc = fc.some(x => x.f && !x.f.done && x.f.late >= 3);
+  const aheadBig = inPlan(sts[0]) && trackPagesLeft('main') > 0 && sts[0].ahead / sts[0].avg > 2;
+  let banner = null;
+  if (behindBig) banner = ['warn', '遅れが2日分を超えました。残りを割り直せます。'];
+  else if (lateFc) banner = ['warn', '今のペースだと目標日に間に合わない見込みです。実際の速さに合わせて組み直せます。'];
+  else if (aheadBig) banner = ['info', '予定より2日分以上進んでいます。前倒しで終えるか、1日の量を軽くできます。'];
+  const pagesHint = layout.mode === 'virtual' ? `<p class="small muted" style="margin:10px 0 0">ページ数が未設定なので、節の数で計画しています。<a href="#" data-action="goto-pages">設定で各章の開始ページを入れる</a>と正確になります。</p>` : '';
+  return `<div class="card"><h2>教本1周の進み具合<span class="tag plain right">目標 ${jpDate(state.plan.to)}</span></h2>
+    <div class="row"><div class="bar" style="flex:1"><i style="width:${pct}%"></i></div><b style="font-variant-numeric:tabular-nums">${pct}%</b></div>
+    ${rows}${fcLine}
+    ${banner ? `<div class="banner ${banner[0]}" style="margin:12px 0 0"><div>${banner[1]}</div><button class="btn" data-action="reschedule">組み直す</button></div>` : ''}
+    ${pagesHint}</div>`;
+}
+function trackCard(tr, t, leftover = false) {
+  const st = trackStatus(tr, t), T = TRACKS[tr];
+  const head = `<h2><span class="tag ${tr === 'sub' ? 'sub' : ''}">${leftover ? '積み残し・' : ''}${T.name}</span>${T.range}（${T.desc}）</h2>`;
+  if (trackPagesLeft(tr) <= 0) return `<div class="card">${head}<div class="status good">${T.range}は読み終わりました</div></div>`;
+  const btnCls = tr === 'sub' ? 'subc' : 'primary';
+  if (st.need > 0) {
+    const tn = todayNeed(st);
+    const items = buildRange(tr, tn.need);
+    if (items.length) {
+      const note = st.kind === 'leftover' ? `<div class="small muted" style="margin-top:4px">教本の残りは${pagesText(trackPagesLeft(tr))}。過去問の合間に1日分ずつ読み進めます。</div>`
+        : st.kind === 'buffer' ? '<div class="small muted" style="margin-top:4px">1周の目標日を過ぎた分を、1/4までに読み切るペースです。</div>'
+        : tn.capped ? `<div class="small" style="margin-top:4px;color:var(--warn)">遅れが大きいので、今日は2日分に区切っています。残りは「組み直す」で割り直せます。</div>`
+        : st.behind > 0 ? `<div class="small" style="margin-top:4px;color:var(--warn)">遅れ（${daysText(st.behind / st.avg)}）を含みます</div>` : '';
+      const shown = items.length > 6 ? items.slice(0, 5) : items;
+      return `<div class="card">${head}<div class="task-title">${esc(rangeTitle(items))}</div><div class="task-sub">${rangeSub(items)}</div>${note}
+        ${items.length > 1 || items[0].from > 0 || items[0].to < items[0].len ? `<ul class="seclist">${shown.map(it => `<li><span class="sid">${it.id}</span><span class="stitle">${esc(SEC[it.id].title)}</span><span class="note">${itemNote(it)}</span></li>`).join('')}${items.length > shown.length ? `<li><span class="sid"></span><span class="stitle muted">ほか${items.length - shown.length}節（${items[shown.length].id}〜${items[items.length - 1].id}）</span></li>` : ''}</ul>` : ''}
+        <div class="btns"><button class="btn ${btnCls}" data-action="complete" data-track="${tr}" data-mode="today">読んだら記録する</button></div></div>`;
+    }
+  }
+  const items = buildRange(tr, chunkSize(tr));
+  const noPlan = st.kind === 'plan' && st.inc === 0 && st.ahead === 0;
+  const msg = st.kind === 'adjust' ? '今日は調整日です。予定はありません' : st.kind === 'before' ? `${jpDate(state.plan.from)}から始まります` : noPlan ? '今日は予定がありません' : '今日の分は完了しました';
+  return `<div class="card">${head}<div class="status ${st.kind === 'adjust' || st.kind === 'before' || noPlan ? '' : 'good'}">${msg}</div>
+    ${items.length ? `<div class="small muted" style="margin-top:8px">続けて読むなら：${esc(rangeTitle(items))}　${rangeSub(items)}</div>
+    <div class="btns"><button class="btn" data-action="complete" data-track="${tr}" data-mode="extra">これも読んだら記録する</button></div>` : ''}</div>`;
+}
+function phaseCard(phase, t) {
+  const am = state.exams.filter(e => e.kind === 'am').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
+  const amLine = am.length ? am.map(e => { const p = Math.round(e.correct / e.total * 100); return `<span class="${p >= 70 ? 'pill-good' : p >= 60 ? 'pill-warn' : 'pill-bad'}">${p}%</span>`; }).join('・') : 'まだ記録がありません';
+  if (phase === 'p2') {
+    return `<div class="card"><h2><span class="tag">フェーズ2</span>午前演習と午後準備（〜科目A）</h2>
+      <div class="kv"><span>午前</span><span>1日40問・週1回は80問を150分で通す</span></div>
+      <div class="kv"><span>午後</span><span>選択候補の分野から1日1問</span></div>
+      <div class="kv"><span>目標</span><span>午前の直近3回がすべて70%以上</span></div>
+      <div class="kv"><span>直近の午前</span><span>${amLine}</span></div>
+      <div class="btns"><button class="btn primary" data-action="add-exam" data-kind="am">午前を記録</button><button class="btn" data-action="add-exam" data-kind="pm">午後を記録</button></div></div>`;
+  }
+  return `<div class="card"><h2><span class="tag">フェーズ3</span>午後集中（〜科目B）</h2>
+    <div class="kv"><span>午後</span><span>1日2問・週1回は5問を150分で通す</span></div>
+    <div class="kv"><span>直近の午前</span><span>${amLine}</span></div>
+    <div class="btns"><button class="btn primary" data-action="add-exam" data-kind="pm">午後を記録</button><button class="btn" data-action="add-exam" data-kind="am">午前を記録</button></div></div>`;
+}
+function reviewsCard(t) {
+  const due = dueReviews(t);
+  const next = state.reviews.filter(r => !r.done && r.due > t).sort((a, b) => a.due.localeCompare(b.due))[0];
+  if (!due.length && !next) return '';
+  const rows = due.map(r => {
+    const late = r.due < t;
+    return `<div class="rv"><div class="t">${esc(reviewLabel(r))}<div class="d ${late ? 'late' : ''}">${late ? `期日 ${md(r.due)}（過ぎています）` : '今日'}・目安${reviewMin(r)}分</div></div><button class="btn sm" data-action="review" data-id="${r.id}">完了</button></div>`;
+  }).join('');
+  return `<div class="card"><h2>復習</h2>${rows || '<div class="empty">今日の復習はありません。</div>'}
+    ${next ? `<div class="small muted" style="margin-top:10px">次の復習：${md(next.due)} ${esc(reviewLabel(next))}</div>` : ''}</div>`;
+}
+
+/* ========== 画面：教本 ========== */
+function renderBook(t) {
+  if (!ui.open.size) {
+    for (const tr of ['main', 'sub']) {
+      const f = layout.track[tr].list.find(x => !isDone(x.id));
+      if (f) ui.open.add(SEC[f.id].ch);
+    }
+  }
+  const total = layout.track.main.pages + layout.track.sub.pages;
+  const done = total - trackPagesLeft('main') - trackPagesLeft('sub');
+  const doneSecs = SECTIONS.filter(x => isDone(x.id)).length;
+  let h = `<div class="card"><div class="row"><div style="flex:1"><div class="bar"><i style="width:${total ? Math.floor(done / total * 100) : 0}%"></i></div></div><b>${doneSecs}/80節</b></div>
+    <div class="small muted" style="margin-top:6px">節をタップすると、読了・理解度・メモを記録できます。</div></div>`;
+  for (const c of CHAPTERS) {
+    const ids = c.sections.map((_, i) => `${c.no}.${i + 1}`);
+    const L = ids.reduce((s, id) => s + layout.secs[id].len, 0), R = ids.reduce((s, id) => s + readPages(id), 0);
+    const pct = L ? Math.floor(R / L * 100) : 0;
+    const open = ui.open.has(c.no);
+    const pg = layout.mode === 'pages' ? `・p.${layout.secs[ids[0]].p1}–${layout.secs[ids[ids.length - 1]].p2}` : '';
+    h += `<div class="chapter"><button class="ch-head" data-action="toggle-ch" data-ch="${c.no}">
+      <span class="ch-no ${c.track === 'sub' ? 'sub' : ''}">${c.no}</span>
+      <span class="ch-title">${esc(c.title)}<small>${TRACKS[c.track].name}・${ids.length}節${pg}・${LEVEL_LABEL[state.settings.chapterLevel[c.no]]}</small></span>
+      <span class="ch-pct">${pct}%</span></button>
+      <div class="bar ${c.track === 'sub' ? 'subbar' : ''}"><i style="width:${pct}%"></i></div>
+      ${open ? `<ul class="secs">${ids.map(id => {
+        const p = prog(id), sp = layout.secs[id];
+        const mark = isDone(id) ? `<span class="mark m${p.u || 2}">${['', '△', '○', '◎'][p.u || 2]}</span>` : p.frac > 0 ? '<span class="mark mp">途中</span>' : '<span class="mark"></span>';
+        return `<li><button data-action="open-sec" data-id="${id}"><span class="sid">${id}</span><span class="stitle">${esc(SEC[id].title)}${p.memo ? ' <span class="tiny muted">・メモ</span>' : ''}</span>${layout.mode === 'pages' ? `<span class="pg">p.${sp.p1}</span>` : ''}${mark}</button></li>`;
+      }).join('')}</ul>` : ''}</div>`;
+  }
+  return h;
+}
+
+/* ========== 画面：記録 ========== */
+function renderLog(t) {
+  const ws = weekStart(t), goal = weeklyGoal();
+  const cur = minutesBetween(ws, addDays(ws, 6));
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) { const a = addDays(ws, -7 * i); weeks.push({a, m:minutesBetween(a, addDays(a, 6))}); }
+  const max = Math.max(goal, ...weeks.map(w => w.m), 60);
+  const byCat = {};
+  state.logs.filter(l => l.date >= ws && l.date <= addDays(ws, 6)).forEach(l => { byCat[l.cat] = (byCat[l.cat] || 0) + l.minutes; });
+  let h = `<div class="card"><h2>今週の学習時間<span class="tag plain right">目標 ${hm(goal)}</span></h2>
+    <div class="row"><div class="task-title">${hm(cur)}</div><span class="spacer"></span><span class="small muted">連続 ${streak(t)}日</span></div>
+    <div class="weeks"><div class="goal" style="bottom:${goal / max * 100}%"></div>${weeks.map((w, i) => `<div class="w ${i === 7 ? 'cur' : ''}"><i style="height:${w.m / max * 100}%"></i></div>`).join('')}</div>
+    <div class="wlabels">${weeks.map(w => `<span>${md(w.a)}</span>`).join('')}</div>
+    <div class="small muted" style="margin-top:6px">点線は週の目標。棒は月曜始まりの週ごとの合計です。</div>
+    ${Object.keys(byCat).length ? `<div style="margin-top:10px">${Object.entries(byCat).map(([k, v]) => `<div class="kv"><span>${CAT_LABEL[k] || k}</span><span>${hm(v)}</span></div>`).join('')}</div>` : ''}
+    <div class="btns"><button class="btn" data-action="add-log">時間を記録</button></div></div>`;
+  // 過去問
+  const ex = state.exams.slice().sort((a, b) => b.date.localeCompare(a.date));
+  h += `<div class="card"><h2>過去問の結果</h2>${ex.length ? `<ul class="loglist">${ex.map(e => {
+    const p = e.kind === 'am' ? Math.round(e.correct / e.total * 100) : e.pct;
+    const cls = p >= 70 ? 'pill-good' : p >= 60 ? 'pill-warn' : 'pill-bad';
+    return `<li><span class="ld">${md(e.date)}</span><span class="lt">${e.kind === 'am' ? '午前' : '午後'}・${esc(e.session || '')}${e.field ? `・${esc(e.field)}` : ''}${e.kind === 'am' ? `<span class="tiny muted">　${e.correct}/${e.total}</span>` : ''}</span><span class="lm ${cls}">${p}%</span><button class="x" data-action="del-exam" data-id="${e.id}" aria-label="削除">×</button></li>`;
+  }).join('')}</ul>` : '<div class="empty">まだ記録がありません。教本1周の後（フェーズ2）から本格的に使います。</div>'}
+    <div class="btns"><button class="btn" data-action="add-exam" data-kind="am">午前を記録</button><button class="btn" data-action="add-exam" data-kind="pm">午後を記録</button></div></div>`;
+  // 章ごとの10問
+  const drills = state.reviews.filter(r => r.type === 'drill' && r.done).sort((a, b) => b.done.localeCompare(a.done));
+  if (drills.length) {
+    h += `<div class="card"><h2>章ごとの午前10問（復習）</h2><ul class="loglist">${drills.map(r => `<li><span class="ld">${md(r.done)}</span><span class="lt">${r.target}章 ${esc(CH[r.target].title)}${r.gen > 1 ? '（再）' : ''}</span><span class="lm ${r.correct >= 7 ? 'pill-good' : r.correct >= 6 ? 'pill-warn' : 'pill-bad'}">${r.correct}/10</span></li>`).join('')}</ul></div>`;
+  }
+  // 時間の記録一覧
+  const logs = state.logs.slice().sort((a, b) => (b.date + (b.at || '')).localeCompare(a.date + (a.at || ''))).slice(0, 60);
+  h += `<div class="card"><h2>最近の記録</h2>${logs.length ? `<ul class="loglist">${logs.map(l => `<li><span class="ld">${jpDate(l.date)}</span><span class="lt">${CAT_LABEL[l.cat] || l.cat}${l.note ? `<span class="tiny muted">　${esc(l.note)}</span>` : ''}</span><span class="lm">${hm(l.minutes)}</span><button class="x" data-action="del-log" data-id="${l.id}" aria-label="削除">×</button></li>`).join('')}</ul>` : '<div class="empty">まだ記録がありません。</div>'}</div>`;
+  return h;
+}
+
+/* ========== 画面：設定 ========== */
+function pagesForm(prefix) {
+  const s = state.settings;
+  return `<div class="pgrid">${CHAPTERS.map((c, i) => `<div class="pl">${c.no}章 ${esc(c.title)}<small>開始ページ</small></div><input type="number" inputmode="numeric" id="${prefix}cs${c.no}" value="${s.chapterStart[i] ?? ''}" placeholder="例 ${[12, 70, 120, 170, 240, 290, 380, 470, 560, 630, 690][i]}">`).join('')}
+    <div class="pl">本文の最終ページ<small>11.6「標準化と関連法規」の最後のページ</small></div><input type="number" inputmode="numeric" id="${prefix}end" value="${s.bodyEnd ?? ''}" placeholder="例 780"></div>
+    <details><summary>節ごとの開始ページも入れる（任意）</summary><p class="small muted" style="margin:6px 0 0">空欄の節は、前後のページから均等に割ります。</p>
+    ${CHAPTERS.map(c => `<div class="small" style="font-weight:700;margin-top:12px">${c.no}章 ${esc(c.title)}</div><div class="pgrid">${c.sections.map((tt, i) => {
+      const id = `${c.no}.${i + 1}`;
+      return i === 0 ? '' : `<div class="pl">${id} ${esc(tt)}</div><input type="number" inputmode="numeric" id="${prefix}ss${id.replace('.', '_')}" value="${s.sectionStart[id] ?? ''}">`;
+    }).join('')}</div>`).join('')}</details>`;
+}
+function readPagesForm(prefix) {
+  const num = id => { const el = document.getElementById(id); if (!el) return null; const v = el.value.trim(); return v === '' ? null : Number(v); };
+  const cs = CHAPTERS.map(c => num(`${prefix}cs${c.no}`));
+  const end = num(`${prefix}end`);
+  const filled = cs.filter(v => v !== null).length + (end !== null ? 1 : 0);
+  if (filled === 0) return {ok:true, chapterStart:Array(11).fill(null), bodyEnd:null, sectionStart:{}, empty:true};
+  if (filled < 12 || ![...cs, end].every(isInt)) return {ok:false, error:'11章すべての開始ページと、本文の最終ページを整数で入れてください。'};
+  for (let i = 1; i < 11; i++) if (!(cs[i] > cs[i - 1])) return {ok:false, error:`${i + 1}章の開始ページが${i}章より前になっています。`};
+  if (!(end >= cs[10])) return {ok:false, error:'本文の最終ページが11章の開始ページより前になっています。'};
+  const ss = {};
+  for (const c of CHAPTERS) {
+    const ci = c.no - 1, lo = cs[ci], hi = ci < 10 ? cs[ci + 1] - 1 : end;
+    let prev = lo;
+    for (let i = 1; i < c.sections.length; i++) {
+      const id = `${c.no}.${i + 1}`, v = num(`${prefix}ss${id.replace('.', '_')}`);
+      if (v === null) continue;
+      if (!isInt(v) || v <= prev || v > hi) return {ok:false, error:`${id} の開始ページが、${c.no}章の範囲（p.${lo}–${hi}）か前の節との順番に合っていません。`};
+      ss[id] = v; prev = v;
+    }
+  }
+  return {ok:true, chapterStart:cs, bodyEnd:end, sectionStart:ss};
+}
+function datesForm(prefix) {
+  const s = state.settings;
+  return `<div class="grid2"><label class="f"><span>開始日</span><input type="date" id="${prefix}start" value="${s.startDate}"></label>
+    <label class="f"><span>1周の目標日</span><input type="date" id="${prefix}target" value="${s.targetDate}"></label>
+    <label class="f"><span>科目Aの受験日</span><input type="date" id="${prefix}ea" value="${s.examA}" min="2027-02-06" max="2027-02-19"></label>
+    <label class="f"><span>科目Bの受験日</span><input type="date" id="${prefix}eb" value="${s.examB}" min="2027-03-03" max="2027-03-15"></label></div>
+    <label class="checks" style="display:block;margin:-4px 0 10px"><label><input type="checkbox" id="${prefix}conf" ${s.examConfirmed ? 'checked' : ''}>受験日は予約済み（仮ではない）</label></label>
+    <div class="grid2"><label class="f"><span>調整日（予定を入れない日）</span><select id="${prefix}adj">${WD.map((w, i) => `<option value="${i}" ${s.adjustWeekday === i ? 'selected' : ''}>${w}曜</option>`).join('')}<option value="-1" ${s.adjustWeekday === -1 ? 'selected' : ''}>なし</option></select></label><div></div>
+    <label class="f"><span>平日の目標（時間）</span><input type="number" inputmode="decimal" step="0.5" id="${prefix}gw" value="${s.goalWeekday / 60}"></label>
+    <label class="f"><span>休日の目標（時間）</span><input type="number" inputmode="decimal" step="0.5" id="${prefix}gh" value="${s.goalHoliday / 60}"></label></div>
+    <p class="small muted" style="margin:0">科目Aは2/6〜2/19、科目Bは3/3〜3/15の中から選びます。申込受付は1/27〜2/16です。</p>`;
+}
+function readDatesForm(prefix) {
+  const v = id => document.getElementById(prefix + id).value;
+  const start = v('start'), target = v('target'), ea = v('ea'), eb = v('eb');
+  if (!start || !target || !ea || !eb) return {ok:false, error:'日付をすべて入れてください。'};
+  if (target < start) return {ok:false, error:'1周の目標日が開始日より前になっています。'};
+  if (target >= state.settings.phase2Start) return {ok:false, error:`1周の目標日は${jpDate(addDays(state.settings.phase2Start, -1))}までにしてください。`};
+  if (eb <= ea) return {ok:false, error:'科目Bの受験日は科目Aより後にしてください。'};
+  const gw = Number(v('gw')), gh = Number(v('gh'));
+  if (!(gw >= 0 && gh >= 0)) return {ok:false, error:'目標時間を正しく入れてください。'};
+  return {ok:true, startDate:start, targetDate:target, examA:ea, examB:eb, examConfirmed:document.getElementById(prefix + 'conf').checked,
+    adjustWeekday:Number(v('adj')), goalWeekday:Math.round(gw * 60), goalHoliday:Math.round(gh * 60)};
+}
+function renderSettings(t) {
+  const s = state.settings;
+  return `<div class="card" id="dates-card"><h2>日程と目標</h2>${datesForm('d_')}<div id="d_err"></div>
+      <div class="btns"><button class="btn primary" data-action="save-dates">保存する</button></div></div>
+    <div class="card" id="pages-card"><h2>教本のページ<span class="tag right ${layout.mode === 'pages' ? 'good' : 'warn'}">${layout.mode === 'pages' ? '設定済み' : '未設定'}</span></h2>
+      <p class="small muted" style="margin:0 0 10px">教本の目次を見て、各章の開始ページを入れてください。計画はページ数で割り振ります。</p>
+      ${pagesForm('p_')}<div id="p_err"></div>
+      <div class="btns"><button class="btn primary" data-action="save-pages">保存して計画を作り直す</button></div></div>
+    ${weightsCard()}
+    <div class="card"><h2>計画</h2>
+      <div class="kv"><span>今の計画</span><span>${state.plan ? `${md(state.plan.from)}〜${md(state.plan.to)}（${state.plan.days.length}日）` : 'なし'}</span></div>
+      <div class="kv"><span>当初の1日あたり</span><span>${state.plan && state.plan.origAvgPages ? `メイン ${pagesText(state.plan.origAvgPages.main)}・サブ ${pagesText(state.plan.origAvgPages.sub)}` : '—'}</span></div>
+      <div class="btns" style="flex-direction:column"><button class="btn" data-action="reschedule">今日から組み直す（遅れを割り直す）</button><button class="btn" data-action="rebuild-baseline">開始日から作り直す</button></div></div>
+    <div class="card"><h2>データ</h2>
+      <p class="small muted" style="margin:0 0 6px">データはこのiPhoneの中だけにあります。ホーム画面からアプリを消すとデータも消えるので、ときどき書き出してください。書き出したファイルをClaudeとの会話に添付すれば、進捗を見て計画の相談ができます。</p>
+      <div class="kv"><span>最後の書き出し</span><span>${state.meta.lastExport ? jpDate(state.meta.lastExport.slice(0, 10)) : 'まだ'}</span></div>
+      <div class="kv"><span>データの保護</span><span>${state.meta.persisted === true ? '消えにくい設定になっています' : state.meta.persisted === false ? 'ブラウザ任せ（書き出し推奨）' : '確認中'}</span></div>
+      <div class="btns"><button class="btn primary" data-action="export">書き出す</button><button class="btn" data-action="import">読み込む</button></div>
+      <div class="btns"><button class="btn ghost" style="color:var(--bad)" data-action="reset">すべてのデータを消す</button></div></div>
+    <p class="tiny muted" style="text-align:center">応用情報 学習管理 v${APP_VERSION}${useLS ? '・localStorage' : ''}</p>`;
+}
+
+function weightsCard() {
+  const eff = effectiveWeights();
+  const rows = CHAPTERS.map(c => {
+    const o = eff.obs[c.no], lv = state.settings.chapterLevel[c.no];
+    const info = o.pages >= 5 ? `実績 1ページ約${fmt1(o.minutes / o.pages)}分` : '実績なし';
+    const adj = Math.abs(eff.w[c.no] - eff.prior[c.no]) >= 0.01 ? `・補正後 ${eff.w[c.no].toFixed(2)}` : '';
+    return `<div class="pl">${c.no}章 ${esc(c.title)}<small>${info}${adj}</small></div><select id="w_${c.no}">${Object.keys(LEVELS).map(k => `<option value="${k}" ${lv === k ? 'selected' : ''}>${LEVEL_LABEL[k]}</option>`).join('')}</select>`;
+  }).join('');
+  return `<div class="card" id="weights-card"><h2>章ごとの重さ</h2>
+    <p class="small muted" style="margin:0 0 10px">丁寧に読む章ほど、1日に割り振るページ数を少なくします（速め0.8・標準1.0・丁寧1.3）。記録した勉強時間から実際の速さを出して重さを補正し、次に組み直すときに使います。同じ目安の章どうしは、読んだ章の実績をまだ読んでいない章にも反映します。</p>
+    <div class="pgrid">${rows}</div>
+    <div class="btns"><button class="btn primary" data-action="save-weights">保存して今日から組み直す</button></div></div>`;
+}
+
+/* ========== 初回設定 ========== */
+function renderSetup() {
+  const step = ui.setupStep;
+  if (step === 1) {
+    return `<div class="setup-wrap"><div class="steps">はじめに（1/3）</div><h1>応用情報 学習管理</h1>
+      <p>合格教本の1周を、章と節に合わせて管理します。</p>
+      <ul><li><b>メイン</b>：1〜9章を章の順番どおりに読む</li><li><b>サブ</b>：10〜11章（マネジメント・ストラテジ）を毎日少しずつ並行して読む</li>
+      <li>読み終えた章には、翌日の見直しと7日後の過去問10問が自動で入る</li><li>データはこのiPhoneの中だけに保存され、オフラインでも使える</li></ul>
+      <button class="btn primary block" data-action="setup-next">はじめる</button></div>`;
+  }
+  if (step === 2) {
+    return `<div class="setup-wrap"><div class="steps">教本のページ（2/3）</div><h1>各章の開始ページ</h1>
+      <p>教本の目次を見て入れてください。1日に読むページ数を正確に割り振るために使います。</p>
+      <div class="card">${pagesForm('s_')}<div id="s_err"></div></div>
+      <button class="btn primary block" data-action="setup-pages">次へ</button>
+      <button class="btn ghost block" style="margin-top:8px" data-action="setup-skip-pages">あとで入れる（節の数で仮に計画する）</button></div>`;
+  }
+  return `<div class="setup-wrap"><div class="steps">日程（3/3）</div><h1>日程の確認</h1>
+    <p>受験日は申込みで決まるまで仮のままで大丈夫です。あとで設定から変えられます。</p>
+    <div class="card">${datesForm('s_')}<div id="s_err2"></div></div>
+    <button class="btn primary block" data-action="setup-finish">計画を作って始める</button>
+    <button class="btn ghost block" style="margin-top:8px" data-action="setup-back">戻る</button></div>`;
+}
+
+/* ========== シート（入力画面） ========== */
+function openComplete(tr, mode) {
+  const t = today(), st = trackStatus(tr, t);
+  const need = mode === 'today' ? todayNeed(st).need : chunkSize(tr);
+  const items = buildRange(tr, need);
+  if (!items.length) return;
+  ui.sheet = {kind:'complete', tr, items, partial:false, page:null, checks:items.map(() => true), u:{}, minutes:state.meta.lastMinutes[tr] ?? TRACKS[tr].defMin};
+  openSheet(completeHTML());
+}
+function willComplete() {
+  const sh = ui.sheet;
+  return sh.items.filter((it, i) => {
+    if (it.to < it.len) return false;
+    if (!sh.partial) return true;
+    if (layout.mode === 'pages') { const P = sh.page; return P !== null && P >= layout.secs[it.id].p2; }
+    return sh.checks[i];
+  }).map(it => it.id);
+}
+function completeHTML() {
+  const sh = ui.sheet, T = TRACKS[sh.tr];
+  const fin = willComplete();
+  let partial = '';
+  if (sh.partial) {
+    if (layout.mode === 'pages') {
+      const a = sh.items[0], b = sh.items[sh.items.length - 1];
+      const lo = layout.secs[a.id].p1 + a.from, hi = layout.secs[b.id].p1 + b.to - 1;
+      partial = `<div class="sec"><div class="lbl">どこまで読みましたか？（p.${lo}–${hi}）</div><div class="row"><input type="number" inputmode="numeric" id="cs-page" value="${sh.page ?? ''}" placeholder="${lo}" min="${lo}" max="${hi}"><span class="muted" style="flex:none">ページまで</span></div></div>`;
+    } else {
+      partial = `<div class="sec"><div class="lbl">読み終えたもの</div><div class="checks">${sh.items.map((it, i) => `<label><input type="checkbox" data-action="cs-check" data-i="${i}" ${sh.checks[i] ? 'checked' : ''}>${it.id} ${esc(SEC[it.id].title)}${it.to < it.len ? '（途中まで）' : ''}</label>`).join('')}</div></div>`;
+    }
+  }
+  const under = fin.length ? `<div class="sec"><div class="lbl">読み終えた節の理解度</div>${fin.map(id => `<div class="urow"><div class="ut">${id} ${esc(SEC[id].title)}</div>${underButtons(sh.u[id] ?? 2, 'cs-u', `data-id="${id}"`)}</div>`).join('')}
+    <div class="tiny muted" style="margin-top:6px">△にした節は3日後に読み直しが入ります。</div></div>` : '';
+  return `<h3>${T.name}を記録</h3><p class="lead">${esc(rangeTitle(sh.items))}　${rangeSub(sh.items)}</p>
+    <div class="seg"><button class="${sh.partial ? '' : 'on'}" data-action="cs-partial" data-v="0">全部読んだ</button><button class="${sh.partial ? 'on' : ''}" data-action="cs-partial" data-v="1">途中まで</button></div>
+    ${partial}${under}
+    <div class="sec"><div class="lbl">勉強した時間</div>${stepper('cs-min', sh.minutes, 10, '分', 0, 600)}</div>
+    <div class="btns"><button class="btn ghost" data-action="close">やめる</button><button class="btn ${sh.tr === 'sub' ? 'subc' : 'primary'}" data-action="cs-save">記録する</button></div>`;
+}
+function saveComplete() {
+  const sh = ui.sheet, t = today();
+  sh.minutes = Number($('#cs-min').value) || 0;
+  if (sh.partial && layout.mode === 'pages') {
+    const v = $('#cs-page').value.trim();
+    if (v === '') { toast('読み終えたページを入れてください'); return; }
+    sh.page = Number(v);
+  }
+  const newly = [], delta = {};
+  sh.items.forEach((it, i) => {
+    const before = readPages(it.id);
+    let reach = it.to;
+    if (sh.partial) {
+      if (layout.mode === 'pages') reach = clamp(sh.page - layout.secs[it.id].p1 + 1, it.from, it.to);
+      else reach = sh.checks[i] ? it.to : it.from;
+    }
+    const p = prog(it.id), was = p.frac >= 1;
+    const nf = Math.max(p.frac, reach / it.len);
+    p.frac = nf >= 0.9999 ? 1 : nf;
+    if (!was && p.frac >= 1) { p.u = sh.u[it.id] ?? 2; p.doneDate = t; newly.push(it.id); }
+    const d = logRead(t, it.id, before);
+    if (d > 0) delta[it.id] = d;
+  });
+  afterSectionsDone(newly, t);
+  addLog(t, sh.minutes, sh.tr, '', delta);
+  state.meta.lastMinutes[sh.tr] = sh.minutes;
+  save(); closeSheet(); render();
+  const chDone = [...new Set(newly.map(id => SEC[id].ch))].filter(chapterDone);
+  toast(chDone.length ? `${chDone.join('・')}章を読み終えました。明日から復習が入ります` : '記録しました');
+}
+function openReview(id) {
+  const r = state.reviews.find(x => x.id === id);
+  if (!r) return;
+  ui.sheet = {kind:'review', id, correct:6, minutes:reviewMin(r)};
+  openSheet(reviewHTML());
+}
+function reviewHTML() {
+  const sh = ui.sheet, r = state.reviews.find(x => x.id === sh.id);
+  const help = r.type === 'drill' ? `<p class="small muted" style="margin:0 0 6px">過去問道場や教本特典のDEKIDAS-Webで、この章の分野に絞って10問解いてください。6問未満なら7日後にもう一度入ります。</p>`
+    : r.type === 'recap' ? `<p class="small muted" style="margin:0 0 6px">${r.target}章で△にした節：${CH[r.target].sections.map((_, i) => `${r.target}.${i + 1}`).filter(x => prog(x).u === 1).join('、') || 'なし'}</p>` : '';
+  return `<h3>復習を記録</h3><p class="lead">${esc(reviewLabel(r))}</p>${help}
+    ${r.type === 'drill' ? `<div class="sec"><div class="lbl">正解した数（10問中）</div>${stepper('rv-correct', sh.correct, 1, '問', 0, 10)}</div>` : ''}
+    <div class="sec"><div class="lbl">勉強した時間</div>${stepper('rv-min', sh.minutes, 5, '分', 0, 300)}</div>
+    <div class="btns"><button class="btn ghost" data-action="close">やめる</button><button class="btn primary" data-action="rv-save">完了にする</button></div>`;
+}
+function saveReview() {
+  const sh = ui.sheet, t = today(), r = state.reviews.find(x => x.id === sh.id);
+  r.done = t;
+  if (r.type === 'drill') {
+    r.correct = clamp(Number($('#rv-correct').value) || 0, 0, 10);
+    if (r.correct < 6) addReview('drill', r.target, addDays(t, 7), r.gen + 1);
+  }
+  if (r.type === 'reread' && prog(r.target).u === 1) prog(r.target).u = 2;
+  addLog(t, Number($('#rv-min').value) || 0, 'review', reviewLabel(r));
+  save(); closeSheet(); render();
+  toast(r.type === 'drill' && r.correct < 6 ? '記録しました。7日後にもう一度入ります' : '記録しました');
+}
+function openSection(id) {
+  ui.sheet = {kind:'section', id};
+  openSheet(sectionHTML());
+}
+function sectionHTML() {
+  const id = ui.sheet.id, p = prog(id), sp = layout.secs[id];
+  const pages = layout.mode === 'pages' ? `p.${sp.p1}–${sp.p2}（${sp.len}ページ）` : 'ページ未設定';
+  const status = isDone(id) ? `読了（${p.doneDate ? md(p.doneDate) : ''}）` : p.frac > 0 ? `途中まで${layout.mode === 'pages' ? `（p.${sp.p1 + readPages(id) - 1}まで）` : ''}` : '未読';
+  return `<h3>${id} ${esc(SEC[id].title)}</h3><p class="lead">${CH[SEC[id].ch].title}・${pages}・${status}</p>
+    <div class="sec"><div class="lbl">${isDone(id) ? '理解度' : '読み終えたら理解度を選んで「読了にする」'}</div>${underButtons(p.u ?? (isDone(id) ? 2 : null), 'sec-u')}</div>
+    <div class="btns">${isDone(id) ? `<button class="btn" data-action="sec-unread">未読に戻す</button>` : `<button class="btn primary" data-action="sec-done">読了にする</button>`}</div>
+    <div class="sec"><div class="lbl">メモ</div><textarea id="sec-memo" placeholder="分かりにくかった所、覚えること など">${esc(p.memo)}</textarea>
+    <div class="btns"><button class="btn ghost" data-action="close">閉じる</button><button class="btn" data-action="sec-memo">メモを保存</button></div></div>`;
+}
+function openReschedule() {
+  const t = today(), s = state.settings, lastDay = addDays(s.phase2Start, -1);
+  if (t > lastDay) { toast('教本1周の期間（〜1/4）を過ぎているため、組み直しはできません'); return; }
+  const eff = effectiveWeights();
+  const L2 = buildLayout(s, eff.w);
+  const op = origPace(L2);
+  const to0 = s.targetDate >= t ? s.targetDate : lastDay;
+  const calc = to => ['main', 'sub'].map(tr => {
+    const list = L2.track[tr].list;
+    const remU = L2.track[tr].total - list.reduce((a, x) => a + readPages(x.id) * x.w, 0);
+    const remP = list.reduce((a, x) => a + layout.secs[x.id].len - readPages(x.id), 0);
+    const N = planDays(t, to, s.adjustWeekday).length;
+    return {tr, remP, N, ratio:N ? (remU / N) / op.origAvg[tr] : Infinity, dailyP:N ? remP / N : remP, origP:op.origAvgPages[tr]};
+  });
+  const over = rows => rows.some(r => r.remP > 0 && r.ratio > 1.3);
+  // メインが当初の85%以下のペースで済む＝先行している。サブは少量なので1.3倍までは許す
+  const under = rows => rows[0].remP > 0 && rows[0].ratio <= 0.85 && rows.every(r => r.remP <= 0 || r.ratio <= 1.3);
+  let ext = null, early = null, lighter = false;
+  if (over(calc(to0))) {
+    for (let d = addDays(to0, 1); d <= lastDay; d = addDays(d, 1)) if (!over(calc(d))) { ext = d; break; }
+    if (!ext && to0 < lastDay) ext = lastDay;
+  } else if (under(calc(to0))) {
+    lighter = true;
+    for (let d = t; d < to0; d = addDays(d, 1)) if (calc(d).every(r => r.remP <= 0 || r.ratio <= 1.15)) { early = d; break; }
+  }
+  const rowsHTML = to => calc(to).map(r => `<div class="kv"><span>${TRACKS[r.tr].name}</span><span>残り${pagesText(r.remP)}・1日平均 約${pagesText(r.dailyP)}<span class="muted">（当初 ${pagesText(r.origP)}）</span></span></div>`).join('');
+  const changed = CHAPTERS.filter(c => Math.abs(eff.w[c.no] / eff.prior[c.no] - 1) >= 0.08 && c.sections.some((_, i) => !isDone(`${c.no}.${i + 1}`)));
+  const wNote = changed.length ? `<div class="sec"><div class="lbl">実績で補正した重さ（まだ読んでいない章）</div>${changed.map(c => `<div class="kv"><span>${c.no}章 ${esc(c.title)}</span><span>${LEVEL_LABEL[s.chapterLevel[c.no]]} ${eff.prior[c.no].toFixed(1)} → ${eff.w[c.no].toFixed(2)}<span class="muted">（${eff.w[c.no] < eff.prior[c.no] ? '軽く' : '重く'}）</span></span></div>`).join('')}</div>`
+    : `<p class="small muted" style="margin:10px 0 0">章ごとの重さ（${eff.k ? '実績で補正済み' : '目安のまま。勉強時間の記録がたまると補正します'}）で割り振ります。</p>`;
+  ui.sheet = {kind:'reschedule'};
+  openSheet(`<h3>計画を組み直す</h3><p class="lead">まだ読んでいない分を、今日から目標日までの日に割り直します。調整日は含めません。</p>
+    <div class="sec"><div class="lbl">目標日 ${jpDate(to0)} のまま</div>${rowsHTML(to0)}</div>
+    ${ext ? `<div class="sec"><div class="lbl">目標日を ${jpDate(ext)} に延ばした場合</div>${rowsHTML(ext)}<p class="small muted" style="margin:6px 0 0">目標日のままだと、1日の量が当初の1.3倍を超えます。</p></div>` : ''}
+    ${early ? `<div class="sec"><div class="lbl">目標日を ${jpDate(early)} に早めた場合（当初とほぼ同じペース）</div>${rowsHTML(early)}<p class="small muted" style="margin:6px 0 0">早めに読み終えると、その分を過去問に回せます。</p></div>` : ''}
+    ${wNote}
+    <div class="btns" style="flex-direction:column">${ext ? `<button class="btn primary" data-action="rs-apply" data-to="${ext}">目標日を${md(ext)}に延ばして組み直す</button>` : ''}
+    ${early ? `<button class="btn primary" data-action="rs-apply" data-to="${early}">目標日を${md(early)}に早めて組み直す</button>` : ''}
+    <button class="btn ${ext || early ? '' : 'primary'}" data-action="rs-apply" data-to="${to0}">目標日${md(to0)}のまま${lighter ? '1日の量を軽くする' : '組み直す'}</button>
+    <button class="btn ghost" data-action="close">やめる</button></div>`);
+}
+function applyReschedule(to) {
+  const t = today(), s = state.settings;
+  layout = buildLayout(s, effectiveWeights().w);
+  const p = makePlan(t, to, {main:trackDone('main'), sub:trackDone('sub')});
+  Object.assign(p, origPace());
+  state.plan = p;
+  s.targetDate = to;
+  save(); closeSheet(); render();
+  toast(`${md(to)}までの計画に組み直しました`);
+}
+function openAddLog() {
+  ui.sheet = {kind:'log'};
+  openSheet(`<h3>時間を記録</h3><p class="lead">今日のタスク以外に勉強した時間を足します。</p>
+    <label class="f"><span>日付</span><input type="date" id="lg-date" value="${today()}"></label>
+    <label class="f"><span>区分</span><select id="lg-cat">${Object.entries(CAT_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+    <div class="sec" style="margin-top:0"><div class="lbl">時間</div>${stepper('lg-min', 30, 10, '分', 0, 600)}</div>
+    <label class="f" style="margin-top:12px"><span>メモ（任意）</span><input type="text" id="lg-note"></label>
+    <div class="btns"><button class="btn ghost" data-action="close">やめる</button><button class="btn primary" data-action="lg-save">記録する</button></div>`);
+}
+function openAddExam(kind) {
+  ui.sheet = {kind:'exam', ek:kind};
+  examSheet();
+}
+function examSheet() {
+  const k = ui.sheet.ek;
+  const body = k === 'am'
+    ? `<div class="grid2"><label class="f"><span>正解数</span><input type="number" inputmode="numeric" id="ex-correct" placeholder="例 54"></label><label class="f"><span>問題数</span><input type="number" inputmode="numeric" id="ex-total" value="80"></label></div>`
+    : `<label class="f"><span>分野</span><select id="ex-field">${PM_FIELDS.map(f => `<option>${f}</option>`).join('')}</select></label>
+       <label class="f"><span>得点（自己採点、%）</span><input type="number" inputmode="numeric" id="ex-pct" placeholder="例 65"></label>`;
+  const html = `<h3>過去問の結果を記録</h3>
+    <div class="seg" style="margin:8px 0 14px"><button class="${k === 'am' ? 'on' : ''}" data-action="ex-kind" data-v="am">午前</button><button class="${k === 'pm' ? 'on' : ''}" data-action="ex-kind" data-v="pm">午後</button></div>
+    <div class="grid2"><label class="f"><span>実施回</span><input type="text" id="ex-session" placeholder="例 令和7年秋"></label><label class="f"><span>解いた日</span><input type="date" id="ex-date" value="${today()}"></label></div>
+    ${body}
+    <div class="sec" style="margin-top:0"><div class="lbl">かかった時間（学習時間にも足します）</div>${stepper('ex-min', k === 'am' ? 150 : 30, 10, '分', 0, 600)}</div>
+    <div class="btns"><button class="btn ghost" data-action="close">やめる</button><button class="btn primary" data-action="ex-save">記録する</button></div>`;
+  if ($('#sheet').classList.contains('show')) refreshSheet(html); else openSheet(html);
+}
+function saveExam() {
+  const k = ui.sheet.ek, date = $('#ex-date').value || today(), session = $('#ex-session').value.trim(), minutes = Number($('#ex-min').value) || 0;
+  const e = {id:uid(), kind:k, session, date, minutes};
+  if (k === 'am') {
+    const c = Number($('#ex-correct').value), tt = Number($('#ex-total').value);
+    if (!(tt > 0) || !(c >= 0) || c > tt || $('#ex-correct').value === '') { toast('正解数と問題数を確かめてください'); return; }
+    e.correct = c; e.total = tt;
+  } else {
+    const p = Number($('#ex-pct').value);
+    if ($('#ex-pct').value === '' || !(p >= 0 && p <= 100)) { toast('得点を0〜100で入れてください'); return; }
+    e.pct = Math.round(p); e.field = $('#ex-field').value;
+  }
+  state.exams.push(e);
+  addLog(date, minutes, k, session);
+  save(); closeSheet(); render(); toast('記録しました');
+}
+function confirmSheet(title, lead, okLabel, okAction, danger = false, data = '') {
+  ui.sheet = {kind:'confirm'};
+  openSheet(`<h3>${title}</h3><p class="lead">${lead}</p><div class="btns"><button class="btn ghost" data-action="close">やめる</button><button class="btn ${danger ? 'danger' : 'primary'}" data-action="${okAction}" ${data}>${okLabel}</button></div>`);
+}
+
+/* ========== 書き出し・読み込み ========== */
+async function exportData() {
+  const t = today(), now = new Date().toISOString();
+  // 書き出したファイル自体にも「書き出した日」を入れておく（読み込み後に促しが出続けないように）
+  const json = JSON.stringify({...state, meta:{...state.meta, lastExport:now}, app:'ap-study', exportedAt:now}, null, 2);
+  const name = `ap-study-${t}.json`;
+  const mark = () => { state.meta.lastExport = now; save(); render(); };
+  let file = null;
+  try { file = new File([json], name, {type:'application/json'}); } catch (e) { file = null; }
+  if (file && navigator.canShare && navigator.canShare({files:[file]})) {
+    try { await navigator.share({files:[file], title:name}); mark(); toast('書き出しました'); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 8000);
+  mark(); toast('書き出しました');
+}
+let pendingImport = null;
+function handleImportFile(file) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const obj = JSON.parse(rd.result);
+      if (!obj || !obj.progress || !obj.settings) throw new Error('bad');
+      pendingImport = obj;
+      const n = Object.values(obj.progress).filter(p => p && p.frac >= 1).length;
+      confirmSheet('データを読み込む', `${obj.exportedAt ? `${jpDate(obj.exportedAt.slice(0, 10))}に書き出したデータ（読了${n}節）です。` : ''}今のデータはすべて置き換わります。`, '読み込む', 'import-ok', true);
+    } catch (e) { toast('このファイルは読み込めませんでした'); }
+  };
+  rd.readAsText(file);
+}
+
+/* ========== 操作 ========== */
+const actions = {
+  tab:el => { ui.tab = el.dataset.tab; closeSheet(); render(); window.scrollTo(0, 0); },
+  close:() => closeSheet(),
+  step:el => {
+    const inp = document.getElementById(el.dataset.for);
+    const v = clamp((Number(inp.value) || 0) + Number(el.dataset.d), Number(el.dataset.min), Number(el.dataset.max));
+    inp.value = v;
+  },
+  'goto-pages':(el, e) => { e.preventDefault(); ui.tab = 'settings'; render(); setTimeout(() => { const c = $('#pages-card'); if (c) c.scrollIntoView({block:'start'}); }, 30); },
+  complete:el => openComplete(el.dataset.track, el.dataset.mode),
+  'cs-partial':el => { ui.sheet.minutes = Number($('#cs-min').value) || 0; ui.sheet.partial = el.dataset.v === '1'; refreshSheet(completeHTML()); },
+  'cs-check':el => { ui.sheet.minutes = Number($('#cs-min').value) || 0; ui.sheet.checks[Number(el.dataset.i)] = el.checked; refreshSheet(completeHTML()); },
+  'cs-u':el => { ui.sheet.minutes = Number($('#cs-min').value) || 0; ui.sheet.u[el.dataset.id] = Number(el.dataset.v); const pg = $('#cs-page'); if (pg) ui.sheet.page = pg.value === '' ? null : Number(pg.value); refreshSheet(completeHTML()); },
+  'cs-save':() => saveComplete(),
+  review:el => openReview(el.dataset.id),
+  'rv-save':() => saveReview(),
+  'toggle-ch':el => { const n = Number(el.dataset.ch); if (ui.open.has(n)) ui.open.delete(n); else ui.open.add(n); if (!ui.open.size) ui.open.add(-1); render(); },
+  'open-sec':el => openSection(el.dataset.id),
+  'sec-u':el => {
+    const id = ui.sheet.id, p = prog(id), v = Number(el.dataset.v);
+    if (isDone(id)) { p.u = v; if (v === 1) ensureReread(id, today()); save(); render(); refreshSheet(sectionHTML()); toast('理解度を変えました'); }
+    else { p.u = v; refreshSheet(sectionHTML()); }
+  },
+  'sec-done':() => {
+    const id = ui.sheet.id, p = prog(id), t = today(), before = readPages(id);
+    p.frac = 1; p.u = p.u ?? 2; p.doneDate = t;
+    logRead(t, id, before);
+    afterSectionsDone([id], t);
+    save(); render(); refreshSheet(sectionHTML()); toast('読了にしました');
+  },
+  'sec-unread':() => { const id = ui.sheet.id, p = prog(id), before = readPages(id); p.frac = 0; p.u = null; p.doneDate = null; logRead(today(), id, before); save(); render(); refreshSheet(sectionHTML()); toast('未読に戻しました'); },
+  'sec-memo':() => { prog(ui.sheet.id).memo = $('#sec-memo').value; save(); render(); closeSheet(); toast('メモを保存しました'); },
+  reschedule:() => openReschedule(),
+  'rs-apply':el => applyReschedule(el.dataset.to),
+  'rebuild-baseline':() => confirmSheet('開始日から作り直す', '開始日と目標日はそのままで、最初の計画を作り直します。読んだ記録は残ります。', '作り直す', 'rebuild-baseline-ok'),
+  'rebuild-baseline-ok':() => { rebuildPlan('baseline'); save(); closeSheet(); render(); toast('計画を作り直しました'); },
+  'add-log':() => openAddLog(),
+  'lg-save':() => {
+    const m = Number($('#lg-min').value) || 0;
+    if (m <= 0) { toast('時間を入れてください'); return; }
+    addLog($('#lg-date').value || today(), m, $('#lg-cat').value, $('#lg-note').value.trim());
+    save(); closeSheet(); render(); toast('記録しました');
+  },
+  'del-log':el => confirmSheet('記録を消す', 'この学習時間の記録を消します。', '消す', 'del-log-ok', true, `data-id="${el.dataset.id}"`),
+  'del-log-ok':el => { state.logs = state.logs.filter(l => l.id !== el.dataset.id); save(); closeSheet(); render(); },
+  'add-exam':el => openAddExam(el.dataset.kind),
+  'ex-kind':el => { ui.sheet.ek = el.dataset.v; examSheet(); },
+  'ex-save':() => saveExam(),
+  'del-exam':el => confirmSheet('結果を消す', 'この過去問の結果を消します（学習時間の記録は残ります）。', '消す', 'del-exam-ok', true, `data-id="${el.dataset.id}"`),
+  'del-exam-ok':el => { state.exams = state.exams.filter(x => x.id !== el.dataset.id); save(); closeSheet(); render(); },
+  'mark-applied':() => { state.settings.applied = today(); save(); render(); toast('受験日を予約したら、設定で日付を直してください', 3500); },
+  'save-dates':() => {
+    const r = readDatesForm('d_');
+    if (!r.ok) { $('#d_err').innerHTML = `<div class="err">${r.error}</div>`; return; }
+    const s = state.settings;
+    const planChanged = r.startDate !== s.startDate || r.targetDate !== s.targetDate || r.adjustWeekday !== s.adjustWeekday;
+    if (r.targetDate !== s.targetDate) s.baseTargetDate = r.targetDate;
+    Object.assign(s, {startDate:r.startDate, targetDate:r.targetDate, examA:r.examA, examB:r.examB, examConfirmed:r.examConfirmed, adjustWeekday:r.adjustWeekday, goalWeekday:r.goalWeekday, goalHoliday:r.goalHoliday});
+    if (planChanged) rebuildPlan('fromToday');
+    save(); render(); toast(planChanged ? '保存して計画を組み直しました' : '保存しました');
+  },
+  'save-pages':() => {
+    const r = readPagesForm('p_');
+    if (!r.ok) { $('#p_err').innerHTML = `<div class="err">${r.error}</div>`; return; }
+    Object.assign(state.settings, {chapterStart:r.chapterStart, bodyEnd:r.bodyEnd, sectionStart:r.sectionStart});
+    rebuildPlan('baseline');
+    save(); render(); toast(r.empty ? 'ページ未設定（節の数で計画）にしました' : 'ページを保存して計画を作り直しました');
+  },
+  'save-weights':() => {
+    CHAPTERS.forEach(c => { const el = document.getElementById(`w_${c.no}`); if (el) state.settings.chapterLevel[c.no] = el.value; });
+    rebuildPlan('fromToday');
+    save(); render(); toast('重さを保存して、今日から組み直しました');
+  },
+  export:() => exportData(),
+  import:() => { const f = $('#importFile'); f.value = ''; f.click(); },
+  'import-ok':() => {
+    if (!pendingImport) return;
+    state = normalize(pendingImport); state.meta.setupDone = true; pendingImport = null;
+    refreshLayout(); if (!state.plan || !state.plan.weights) rebuildPlan(anyProgress() ? 'fromToday' : 'baseline');
+    save(); closeSheet(); ui.tab = 'today'; render(); toast('読み込みました');
+  },
+  reset:() => confirmSheet('すべてのデータを消す', '読んだ記録・学習時間・過去問・設定がすべて消えます。先に書き出しておくことをおすすめします。', 'すべて消す', 'reset-ok', true),
+  'reset-ok':() => { state = freshState(); ui.setupStep = 1; ui.tab = 'today'; refreshLayout(); save(); closeSheet(); render(); },
+  'setup-next':() => { ui.setupStep = 2; render(); window.scrollTo(0, 0); },
+  'setup-back':() => { ui.setupStep = 2; render(); window.scrollTo(0, 0); },
+  'setup-pages':() => {
+    const r = readPagesForm('s_');
+    if (!r.ok) { $('#s_err').innerHTML = `<div class="err">${r.error}</div>`; return; }
+    if (r.empty) { $('#s_err').innerHTML = '<div class="err">ページを入れるか、下の「あとで入れる」を選んでください。</div>'; return; }
+    Object.assign(state.settings, {chapterStart:r.chapterStart, bodyEnd:r.bodyEnd, sectionStart:r.sectionStart});
+    ui.setupStep = 3; render(); window.scrollTo(0, 0);
+  },
+  'setup-skip-pages':() => { ui.setupStep = 3; render(); window.scrollTo(0, 0); },
+  'setup-finish':() => {
+    const r = readDatesForm('s_');
+    if (!r.ok) { $('#s_err2').innerHTML = `<div class="err">${r.error}</div>`; return; }
+    Object.assign(state.settings, {startDate:r.startDate, targetDate:r.targetDate, baseTargetDate:r.targetDate, examA:r.examA, examB:r.examB, examConfirmed:r.examConfirmed, adjustWeekday:r.adjustWeekday, goalWeekday:r.goalWeekday, goalHoliday:r.goalHoliday});
+    rebuildPlan('baseline');
+    state.meta.setupDone = true;
+    requestPersist();
+    save(); ui.tab = 'today'; render(); window.scrollTo(0, 0);
+  },
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const fn = actions[el.dataset.action];
+  if (fn) fn(el, e);
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'cs-page' && ui.sheet && ui.sheet.kind === 'complete') {
+    const v = e.target.value.trim();
+    const before = willComplete().join();
+    ui.sheet.page = v === '' ? null : Number(v);
+    if (willComplete().join() !== before) {
+      ui.sheet.minutes = Number($('#cs-min').value) || 0;
+      const pos = e.target.selectionStart;
+      refreshSheet(completeHTML());
+      const inp = $('#cs-page'); inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (err) { /* number input */ }
+    }
+  }
+});
+$('#backdrop').addEventListener('click', closeSheet);
+$('#importFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) handleImportFile(f); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') render(); });
+
+function requestPersist() {
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(v => { state.meta.persisted = v; save(); }).catch(() => {});
+  }
+}
+
+/* ========== 起動 ========== */
+(async function init() {
+  const loaded = await loadState();
+  state = loaded ? normalize(loaded) : freshState();
+  if (!loaded && today() > state.settings.startDate && today() < state.settings.targetDate) state.settings.startDate = today();
+  refreshLayout();
+  if (state.meta.setupDone && (!state.plan || !state.plan.weights)) rebuildPlan(state.plan && anyProgress() ? 'fromToday' : 'baseline');
+  render();
+  if (state.meta.setupDone && navigator.storage && navigator.storage.persisted) {
+    navigator.storage.persisted().then(v => { if (v !== state.meta.persisted) { state.meta.persisted = v; save(); if (ui.tab === 'settings') render(); } }).catch(() => {});
+  }
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

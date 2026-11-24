@@ -41,6 +41,8 @@ button{cursor:pointer}
   padding:calc(env(safe-area-inset-top) + 12px) 18px 8px}
 #topbar h1{margin:0;font-size:24px;font-weight:700;letter-spacing:.01em}
 #topbar .date{font-size:14px;color:var(--sub);font-weight:500}
+.syncstat{position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 12px);border:0;background:transparent;font-size:12px;font-weight:600;color:var(--good);padding:4px 6px;border-radius:8px}
+.syncstat.syncing{color:var(--sub)}.syncstat.error{color:var(--bad)}.syncstat.offline{color:var(--warn)}
 main{padding:4px 14px 8px;max-width:560px;margin:0 auto}
 .card{background:var(--card);border-radius:var(--radius);padding:16px;margin:0 0 12px;border:1px solid var(--line)}
 .card h2{font-size:15px;margin:0 0 10px;color:var(--sub);font-weight:600;display:flex;align-items:center;gap:8px}
@@ -134,7 +136,7 @@ a{color:var(--accent)}
 .x{width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--faint);font-size:18px;line-height:1}
 label.f{display:block;margin:0 0 12px}
 label.f>span{display:block;font-size:13px;color:var(--sub);font-weight:600;margin-bottom:4px}
-input[type=number],input[type=date],input[type=text],select,textarea{width:100%;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:16px}
+input[type=number],input[type=date],input[type=text],input[type=password],select,textarea{width:100%;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:16px}
 textarea{min-height:90px;resize:vertical}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .pgrid{display:grid;grid-template-columns:1fr 96px;gap:8px 10px;align-items:center}
@@ -208,7 +210,7 @@ body.setup #tabs{display:none}
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 <script>
 'use strict';
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 /* ========== 教本マスタ（令和08年 応用情報技術者 合格教本） ========== */
 const CHAPTERS = [
@@ -279,8 +281,8 @@ const ui = {tab:'today', open:new Set(), setupStep:1, sheet:null, logFilter:null
 
 function freshState() {
   const progress = {};
-  SECTIONS.forEach(x => { progress[x.id] = {frac:0, u:null, doneDate:null, memo:''}; });
-  return {version:2, settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), plan:null, progress, reviews:[], logs:[], exams:[], readLog:[],
+  SECTIONS.forEach(x => { progress[x.id] = {frac:0, u:null, doneDate:null, memo:'', tf:0, tu:0, tm:0}; });
+  return {version:2, settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), plan:null, progress, reviews:[], logs:[], exams:[], readLog:[], deleted:{logs:[], exams:[]},
     meta:{createdAt:new Date().toISOString(), setupDone:false, lastExport:null, lastMinutes:{}, persisted:null}};
 }
 function normalize(s) {
@@ -301,6 +303,18 @@ function normalize(s) {
   out.version = 2;
   out.meta = {...base.meta, ...(s.meta || {})};
   out.meta.lastMinutes = out.meta.lastMinutes || {};
+  const del = s.deleted || {};
+  out.deleted = {logs:[...new Set(del.logs || [])], exams:[...new Set(del.exams || [])]};
+  // 同期用の時刻。時刻のない古いデータは、まだ何も入れていない端末（0）より新しい扱いにする
+  for (const id of Object.keys(out.progress)) {
+    const p = out.progress[id], raw = (s.progress && s.progress[id]) || {};
+    if (!('tf' in raw)) p.tf = (p.frac > 0 || p.doneDate) ? 1 : 0;
+    if (!('tu' in raw)) p.tu = p.u != null ? 1 : 0;
+    if (!('tm' in raw)) p.tm = p.memo ? 1 : 0;
+  }
+  if (!(s.settings && '_t' in s.settings)) out.settings._t = (s.meta && s.meta.setupDone) ? 1 : 0;
+  out.reviews.forEach(r => { if (r._t === undefined) r._t = 1; });
+  out.readLog.forEach((e, i) => { if (!e.k) e.k = `L${e.date}|${e.id}|${e.pages}|${i}`; });
   delete out.exportedAt; delete out.app;
   return out;
 }
@@ -326,7 +340,8 @@ async function loadState() {
   }
 }
 let saveChain = Promise.resolve();
-function save() {
+function save() { const p = saveLocal(); scheduleSync(2500); return p; }
+function saveLocal() {
   const snapshot = JSON.parse(JSON.stringify(state));
   saveChain = saveChain.then(() => new Promise(res => {
     if (useLS || !db) {
@@ -341,6 +356,234 @@ function save() {
     } catch (e) { toast('保存に失敗しました', 4000); res(); }
   }));
   return saveChain;
+}
+
+async function kvGet(key) {
+  if (!useLS && db) {
+    try {
+      return await new Promise((res, rej) => {
+        const q = db.transaction('kv', 'readonly').objectStore('kv').get(key);
+        q.onsuccess = () => res(q.result ?? null); q.onerror = () => rej(q.error);
+      });
+    } catch (e) { /* localStorage へ */ }
+  }
+  try { const raw = localStorage.getItem('ap-study-' + key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function kvSet(key, val) {
+  return new Promise(res => {
+    if (useLS || !db) { try { if (val === null) localStorage.removeItem('ap-study-' + key); else localStorage.setItem('ap-study-' + key, JSON.stringify(val)); } catch (e) { /* 無視 */ } return res(); }
+    try {
+      const tx = db.transaction('kv', 'readwrite'), st = tx.objectStore('kv');
+      if (val === null) st.delete(key); else st.put(JSON.parse(JSON.stringify(val)), key);
+      tx.oncomplete = () => res(); tx.onerror = tx.onabort = () => res();
+    } catch (e) { res(); }
+  });
+}
+
+/* ========== 同期（GitHubの非公開リポジトリに data.json を置く） ========== */
+const nowMs = () => Date.now();
+let syncCfg = null; // {owner, repo, path, token, lastSync, lastError, force}。トークンは端末内だけに置き、書き出しや同期には含めない
+const syncUI = {status:'idle', msg:'', busy:false, pending:false, timer:null, lastAttempt:0, needRender:false};
+const LOCAL_META = ['persisted', 'lastMinutes'];
+function sharedState(st) { const o = {...st, meta:{...st.meta}}; LOCAL_META.forEach(k => delete o.meta[k]); return o; }
+// キーの順番に左右されない比較用の文字列
+function stable(v) {
+  if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+}
+const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+// 2台分のデータを1つにまとめる。項目ごとに新しい方を残し、記録は両方を足し合わせ、消した記録は消したままにする
+function mergeStates(L, R) {
+  const A = normalize(JSON.parse(JSON.stringify(L))), B = normalize(JSON.parse(JSON.stringify(R)));
+  const out = A;
+  if ((B.settings._t || 0) > (A.settings._t || 0)) out.settings = B.settings;
+  if (B.plan && (!A.plan || (B.plan.createdAt || '') > (A.plan.createdAt || ''))) out.plan = B.plan;
+  for (const id of Object.keys(A.progress)) {
+    const a = A.progress[id], b = B.progress[id];
+    if (!b) continue;
+    if ((b.tf || 0) > (a.tf || 0)) { a.frac = b.frac; a.doneDate = b.doneDate; a.tf = b.tf; }
+    if ((b.tu || 0) > (a.tu || 0)) { a.u = b.u; a.tu = b.tu; }
+    if ((b.tm || 0) > (a.tm || 0)) { a.memo = b.memo; a.tm = b.tm; }
+  }
+  const delL = new Set([...A.deleted.logs, ...B.deleted.logs]), delE = new Set([...A.deleted.exams, ...B.deleted.exams]);
+  out.deleted = {logs:[...delL].sort(), exams:[...delE].sort()};
+  const uni = (x, y, key) => { const m = new Map(); [...x, ...y].forEach(e => { if (e && e[key] != null && !m.has(e[key])) m.set(e[key], e); }); return [...m.values()]; };
+  out.logs = uni(A.logs, B.logs, 'id').filter(l => !delL.has(l.id)).sort((p, q) => cmp(p.date + (p.at || '') + p.id, q.date + (q.at || '') + q.id));
+  out.exams = uni(A.exams, B.exams, 'id').filter(e => !delE.has(e.id)).sort((p, q) => cmp(p.date + p.id, q.date + q.id));
+  out.readLog = uni(A.readLog, B.readLog, 'k').sort((p, q) => cmp(p.date + p.k, q.date + q.k));
+  const rk = r => `${r.type}|${r.target}|${r.gen}`;
+  const rm = new Map();
+  [...A.reviews, ...B.reviews].forEach(r => {
+    const k = rk(r), c = rm.get(k);
+    if (!c) { rm.set(k, r); return; }
+    if (!!r.done !== !!c.done) { if (r.done) rm.set(k, r); return; }
+    if ((r._t || 0) > (c._t || 0)) rm.set(k, r);
+  });
+  out.reviews = [...rm.values()].sort((p, q) => cmp(p.due + rk(p), q.due + rk(q)));
+  out.meta = {...A.meta, setupDone:!!(A.meta.setupDone || B.meta.setupDone),
+    createdAt:[A.meta.createdAt, B.meta.createdAt].filter(Boolean).sort()[0] || A.meta.createdAt,
+    lastExport:[A.meta.lastExport, B.meta.lastExport].filter(Boolean).sort().pop() || null};
+  return out;
+}
+function b64enc(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function b64dec(b64) {
+  const bin = atob(String(b64).replace(/\s/g, ''));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+const ghBase = c => `https://api.github.com/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}`;
+const ghHeaders = c => ({'Authorization':`Bearer ${c.token}`, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'});
+function ghError(status) {
+  const msg = status === 401 ? 'トークンが正しくないか、期限が切れています。'
+    : status === 403 ? 'トークンにこのリポジトリへの書き込み権限がありません（Contents を Read and write にしてください）。'
+    : status === 404 ? 'リポジトリが見つかりません。ユーザー名・リポジトリ名と、トークンで選んだリポジトリを確かめてください。'
+    : `GitHubでエラーが起きました（${status}）。少し待ってもう一度試してください。`;
+  const e = new Error(msg); e.status = status; return e;
+}
+async function ghFetch(url, opt) {
+  try { return await fetch(url, opt); }
+  catch (e) { const er = new Error('通信できませんでした。電波のある所でもう一度試してください。'); er.offline = true; throw er; }
+}
+async function ghRepo(c) {
+  const r = await ghFetch(ghBase(c), {headers:ghHeaders(c), cache:'no-store'});
+  if (!r.ok) throw ghError(r.status);
+  return r.json();
+}
+async function ghGet(c) {
+  const r = await ghFetch(`${ghBase(c)}/contents/${c.path}`, {headers:ghHeaders(c), cache:'no-store'});
+  if (r.status === 404) return {exists:false};
+  if (!r.ok) throw ghError(r.status);
+  const j = await r.json();
+  return {exists:true, sha:j.sha, data:JSON.parse(b64dec(j.content || ''))};
+}
+async function ghPut(c, data, sha) {
+  const body = {message:`sync ${new Date().toISOString()}`, content:b64enc(JSON.stringify(data))};
+  if (sha) body.sha = sha;
+  const r = await ghFetch(`${ghBase(c)}/contents/${c.path}`, {method:'PUT', headers:{...ghHeaders(c), 'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (r.status === 409 || r.status === 422) { const e = new Error('conflict'); e.conflict = true; throw e; }
+  if (!r.ok) throw ghError(r.status);
+  return true;
+}
+function scheduleSync(ms) {
+  if (!syncCfg) return;
+  clearTimeout(syncUI.timer);
+  syncUI.timer = setTimeout(() => syncNow(), ms);
+}
+function inputFocused() { const a = document.activeElement; return !!(a && $('#view').contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
+// 入力中や入力画面を開いているときは描き直さず、閉じたときに描き直す
+function safeRender() { if (ui.sheet || inputFocused()) syncUI.needRender = true; else render(); }
+function syncLabel() {
+  if (!syncCfg) return '';
+  if (syncUI.status === 'syncing') return '同期中…';
+  if (syncUI.status === 'error') return '同期エラー';
+  if (syncUI.status === 'offline') return '未同期（オフライン）';
+  if (syncCfg.lastSync) { const d = new Date(syncCfg.lastSync); return `同期済み ${d.getHours()}:${pad(d.getMinutes())}`; }
+  return '同期待ち';
+}
+function setSyncStatus(st, msg = '') {
+  syncUI.status = st; syncUI.msg = msg;
+  const el = document.getElementById('syncstat');
+  if (el) { el.textContent = syncLabel(); el.className = `syncstat ${st}`; }
+  if (ui.tab === 'settings' && st !== 'syncing') safeRender();
+}
+async function syncNow(opts = {}) {
+  if (!syncCfg || !syncCfg.token) return false;
+  if (syncUI.busy) { syncUI.pending = true; return false; }
+  if (navigator.onLine === false) { setSyncStatus('offline'); return false; }
+  syncUI.busy = true; syncUI.lastAttempt = nowMs(); setSyncStatus('syncing');
+  let ok = false;
+  try {
+    for (let attempt = 0; attempt < 4 && !ok; attempt++) {
+      const remote = await ghGet(syncCfg);
+      let merged;
+      if (opts.adoptRemote) {
+        if (!remote.exists) throw new Error('このリポジトリにはまだデータがありません。');
+        merged = normalize(remote.data);
+      } else if (syncCfg.force || !remote.exists) merged = normalize(JSON.parse(JSON.stringify(state)));
+      else merged = mergeStates(state, remote.data);
+      const mergedKey = stable(sharedState(merged));
+      const remoteKey = remote.exists ? stable(sharedState(normalize(remote.data))) : null;
+      if (mergedKey !== remoteKey) {
+        try { await ghPut(syncCfg, sharedState(merged), remote.exists ? remote.sha : null); }
+        catch (e) { if (e.conflict) continue; throw e; }
+      }
+      merged.meta.persisted = state.meta.persisted;
+      merged.meta.lastMinutes = state.meta.lastMinutes || {};
+      const changed = stable(sharedState(state)) !== mergedKey;
+      state = merged;
+      if (changed) { refreshLayout(); await saveLocal(); safeRender(); }
+      syncCfg.force = false; syncCfg.lastSync = new Date().toISOString(); syncCfg.lastError = null;
+      await kvSet('sync', syncCfg);
+      ok = true;
+    }
+    if (!ok) throw new Error('ほかの端末の保存と重なりました。少し待ってもう一度同期してください。');
+    setSyncStatus('ok');
+  } catch (e) {
+    if (syncCfg) { syncCfg.lastError = e.message; kvSet('sync', syncCfg); }
+    syncUI.busy = false;
+    setSyncStatus(e.offline ? 'offline' : 'error', e.message);
+    if (opts.throwErrors) throw e;
+  } finally {
+    syncUI.busy = false;
+    if (syncUI.pending) { syncUI.pending = false; scheduleSync(1500); }
+  }
+  return ok;
+}
+async function connectSync(prefix, adopt) {
+  const v = id => ((document.getElementById(prefix + id) || {}).value || '').trim();
+  const cfg = {owner:v('owner'), repo:v('repo'), token:v('token'), path:'data.json', lastSync:null, lastError:null, force:false};
+  const box = document.getElementById(prefix + 'err');
+  const show = (m, err = true) => { if (box) box.innerHTML = `<div class="${err ? 'err' : 'small muted'}" style="margin-top:8px">${esc(m)}</div>`; };
+  if (!cfg.owner || !cfg.repo || !cfg.token) { show('ユーザー名・リポジトリ名・トークンをすべて入れてください。'); return; }
+  show('接続しています…', false);
+  try {
+    const repo = await ghRepo(cfg);
+    if (repo && repo.private === false) { show('このリポジトリは公開（Public）です。記録が誰でも見られてしまうので、非公開（Private）のリポジトリを使ってください。'); return; }
+    if (adopt) {
+      const remote = await ghGet(cfg);
+      if (!remote.exists) { show('このリポジトリにはまだデータがありません。先に、記録している端末（スマホ）の設定画面で同期を始めてください。'); return; }
+    }
+    syncCfg = cfg;
+    await kvSet('sync', syncCfg);
+    await syncNow({adoptRemote:adopt, throwErrors:true});
+    if (adopt) { ui.tab = 'today'; requestPersist(); }
+    render();
+    toast(adopt ? 'ほかの端末の記録を取り込みました' : '同期を始めました');
+  } catch (e) {
+    if (syncCfg === cfg && !cfg.lastSync) { syncCfg = null; await kvSet('sync', null); render(); }
+    show(e.message || '接続できませんでした。');
+  }
+}
+function syncForm(prefix) {
+  const defOwner = location.hostname.endsWith('.github.io') ? location.hostname.split('.')[0] : '';
+  return `<div class="grid2"><label class="f"><span>GitHubのユーザー名</span><input type="text" id="${prefix}owner" value="${esc(defOwner)}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>リポジトリ名</span><input type="text" id="${prefix}repo" value="ap-study-data" autocapitalize="off" autocorrect="off" spellcheck="false"></label></div>
+    <label class="f"><span>トークン（github_pat_ で始まる文字列）</span><input type="password" id="${prefix}token" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_..."></label>`;
+}
+const syncSteps = `<ol class="small" style="margin:0 0 12px;padding-left:20px;line-height:1.7">
+  <li>GitHubで<b>非公開（Private）</b>のリポジトリ <b>ap-study-data</b> を作る（1回だけ）</li>
+  <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">トークンを作る</a>：Repository access は「Only select repositories」で ap-study-data だけ、Permissions の Contents を「Read and write」</li>
+  <li>下に入れて接続する（トークンは端末ごとに1つ作るのがおすすめ）</li></ol>`;
+function syncCard() {
+  if (!syncCfg) {
+    return `<div class="card" id="sync-card"><h2>スマホとPCの同期<span class="tag plain right">未設定</span></h2>
+      <p class="small muted" style="margin:0 0 10px">GitHubの非公開リポジトリにデータを置いて、スマホとPCの記録をそろえます。どちらで入力しても、開いたときと記録したときに自動で同期します。</p>
+      ${syncSteps}${syncForm('sy_')}<div id="sy_err"></div>
+      <div class="btns"><button class="btn primary" data-action="sync-connect">接続する</button></div></div>`;
+  }
+  const st = syncUI.status, cls = st === 'error' ? 'bad' : st === 'offline' ? 'warn' : 'good';
+  const last = syncCfg.lastSync ? (() => { const d = new Date(syncCfg.lastSync); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${pad(d.getMinutes())}`; })() : 'まだ';
+  return `<div class="card" id="sync-card"><h2>スマホとPCの同期<span class="tag right ${cls}">${esc(syncLabel())}</span></h2>
+    <div class="kv"><span>保存先</span><span>${esc(syncCfg.owner)}/${esc(syncCfg.repo)}（非公開）</span></div>
+    <div class="kv"><span>最後の同期</span><span>${last}</span></div>
+    ${syncCfg.lastError && st !== 'ok' ? `<div class="err">${esc(syncCfg.lastError)}</div>` : ''}
+    <div class="btns"><button class="btn primary" data-action="sync-now">今すぐ同期</button><button class="btn" data-action="sync-disconnect">この端末の同期をやめる</button></div>
+    <p class="small muted" style="margin:10px 0 0">開いたとき・記録したとき・開いている間は2分ごとに同期します。GitHubには同期のたびに履歴が残ります。トークンはこの端末の中だけに保存され、書き出したファイルには入りません。</p></div>`;
 }
 
 /* ========== ページ配置 ========== */
@@ -631,7 +874,7 @@ function computePhase(t) {
 /* ========== 復習 ========== */
 function addReview(type, target, due, gen = 1) {
   if (state.reviews.some(r => r.type === type && r.target === target && r.gen === gen)) return;
-  state.reviews.push({id:uid(), type, target, due, gen, done:null, correct:null});
+  state.reviews.push({id:uid(), type, target, due, gen, done:null, correct:null, _t:nowMs()});
 }
 function ensureReread(id, t) {
   if (state.reviews.some(r => r.type === 'reread' && r.target === id && !r.done)) return;
@@ -668,7 +911,7 @@ function addLog(date, minutes, cat, note = '', pages = null) {
 }
 function logRead(date, id, before) {
   const d = readPages(id) - before;
-  if (d !== 0) state.readLog.push({date, id, pages:d});
+  if (d !== 0) state.readLog.push({k:uid(), date, id, pages:d});
   return d;
 }
 const weekStart = t => { const wd = (parseD(t).getDay() + 6) % 7; return addDays(t, -wd); };
@@ -693,7 +936,7 @@ function render() {
   if (!state.meta.setupDone) { $('#topbar').innerHTML = ''; $('#view').innerHTML = renderSetup(); return; }
   const t = today();
   const titles = {today:'今日', book:'教本', log:'記録', settings:'設定'};
-  $('#topbar').innerHTML = `<div class="date">${ui.tab === 'today' ? jpDate(t) : '応用情報 学習管理'}</div><h1>${titles[ui.tab]}</h1>`;
+  $('#topbar').innerHTML = `<div class="date">${ui.tab === 'today' ? jpDate(t) : '応用情報 学習管理'}</div><h1>${titles[ui.tab]}</h1>${syncCfg ? `<button id="syncstat" class="syncstat ${syncUI.status}" data-action="goto-sync">${syncLabel()}</button>` : ''}`;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
   const fn = {today:renderToday, book:renderBook, log:renderLog, settings:renderSettings}[ui.tab];
   $('#view').innerHTML = fn(t);
@@ -717,6 +960,7 @@ function closeSheet() {
   sh.classList.remove('show'); bd.classList.remove('show');
   ui.sheet = null;
   setTimeout(() => { if (!sh.classList.contains('show')) { sh.hidden = true; bd.hidden = true; sh.innerHTML = ''; } }, 230);
+  if (syncUI.needRender && !inputFocused()) { syncUI.needRender = false; render(); }
 }
 const underButtons = (cur, act, extra = '') => `<div class="under">${[[3, '◎', 'よく分かった'], [2, '○', 'だいたい'], [1, '△', '不安']]
   .map(([v, m, l]) => `<button class="u${v} ${cur === v ? 'on' : ''}" data-action="${act}" data-v="${v}" ${extra}>${m}<small>${l}</small></button>`).join('')}</div>`;
@@ -751,7 +995,8 @@ function banners(t) {
   }
   const last = state.meta.lastExport;
   const since = last ? diffDays(last.slice(0, 10), t) : diffDays(state.meta.createdAt.slice(0, 10), t);
-  if (anyProgress() && since >= 7) {
+  const synced = syncCfg && syncCfg.lastSync && diffDays(fmtD(new Date(syncCfg.lastSync)), t) < 7;
+  if (anyProgress() && since >= 7 && !synced) {
     h += `<div class="banner info"><div>${last ? `最後の書き出しから${since}日たちました。` : 'まだ一度も書き出していません。'}アプリを消すとデータも消えるので、書き出しておきましょう。</div><button class="btn" data-action="export">書き出す</button></div>`;
   }
   return h;
@@ -979,7 +1224,7 @@ function readDatesForm(prefix) {
 }
 function renderSettings(t) {
   const s = state.settings;
-  return `<div class="card" id="dates-card"><h2>日程と目標</h2>${datesForm('d_')}<div id="d_err"></div>
+  return `${syncCard()}<div class="card" id="dates-card"><h2>日程と目標</h2>${datesForm('d_')}<div id="d_err"></div>
       <div class="btns"><button class="btn primary" data-action="save-dates">保存する</button></div></div>
     <div class="card" id="pages-card"><h2>教本のページ<span class="tag right ${layout.mode === 'pages' ? 'good' : 'warn'}">${layout.mode === 'pages' ? '設定済み' : '未設定'}</span></h2>
       <p class="small muted" style="margin:0 0 10px">教本の目次を見て、各章の開始ページを入れてください。計画はページ数で割り振ります。</p>
@@ -991,7 +1236,7 @@ function renderSettings(t) {
       <div class="kv"><span>当初の1日あたり</span><span>${state.plan && state.plan.origAvgPages ? `メイン ${pagesText(state.plan.origAvgPages.main)}・サブ ${pagesText(state.plan.origAvgPages.sub)}` : '—'}</span></div>
       <div class="btns" style="flex-direction:column"><button class="btn" data-action="reschedule">今日から組み直す（遅れを割り直す）</button><button class="btn" data-action="rebuild-baseline">開始日から作り直す</button></div></div>
     <div class="card"><h2>データ</h2>
-      <p class="small muted" style="margin:0 0 6px">データはこのiPhoneの中だけにあります。ホーム画面からアプリを消すとデータも消えるので、ときどき書き出してください。書き出したファイルをClaudeとの会話に添付すれば、進捗を見て計画の相談ができます。</p>
+      <p class="small muted" style="margin:0 0 6px">${syncCfg ? `データはこの端末と、GitHubの非公開リポジトリ（${esc(syncCfg.owner)}/${esc(syncCfg.repo)}）に保存されています。書き出しは念のためのバックアップです。` : 'データはこの端末の中だけにあります。ホーム画面からアプリを消すとデータも消えるので、ときどき書き出してください。'}書き出したファイルをClaudeとの会話に添付すれば、進捗を見て計画の相談ができます。</p>
       <div class="kv"><span>最後の書き出し</span><span>${state.meta.lastExport ? jpDate(state.meta.lastExport.slice(0, 10)) : 'まだ'}</span></div>
       <div class="kv"><span>データの保護</span><span>${state.meta.persisted === true ? '消えにくい設定になっています' : state.meta.persisted === false ? 'ブラウザ任せ（書き出し推奨）' : '確認中'}</span></div>
       <div class="btns"><button class="btn primary" data-action="export">書き出す</button><button class="btn" data-action="import">読み込む</button></div>
@@ -1020,8 +1265,16 @@ function renderSetup() {
     return `<div class="setup-wrap"><div class="steps">はじめに（1/3）</div><h1>応用情報 学習管理</h1>
       <p>合格教本の1周を、章と節に合わせて管理します。</p>
       <ul><li><b>メイン</b>：1〜9章を章の順番どおりに読む</li><li><b>サブ</b>：10〜11章（マネジメント・ストラテジ）を毎日少しずつ並行して読む</li>
-      <li>読み終えた章には、翌日の見直しと7日後の過去問10問が自動で入る</li><li>データはこのiPhoneの中だけに保存され、オフラインでも使える</li></ul>
-      <button class="btn primary block" data-action="setup-next">はじめる</button></div>`;
+      <li>読み終えた章には、翌日の見直しと7日後の過去問10問が自動で入る</li><li>データは端末の中に保存され、オフラインでも使える（設定でスマホとPCの同期もできる）</li></ul>
+      <button class="btn primary block" data-action="setup-next">はじめる</button>
+      <button class="btn ghost block" style="margin-top:8px" data-action="setup-sync">ほかの端末と同期して始める（PC・2台目）</button></div>`;
+  }
+  if (step === 'sync') {
+    return `<div class="setup-wrap"><div class="steps">ほかの端末と同期</div><h1>記録を取り込む</h1>
+      <p>スマホで同期を始めたときと同じリポジトリを入れてください。この端末用のトークンを作って入れるのがおすすめです。</p>
+      <div class="card">${syncSteps}${syncForm('ws_')}<div id="ws_err"></div></div>
+      <button class="btn primary block" data-action="setup-sync-connect">接続して記録を取り込む</button>
+      <button class="btn ghost block" style="margin-top:8px" data-action="setup-sync-back">戻る</button></div>`;
   }
   if (step === 2) {
     return `<div class="setup-wrap"><div class="steps">教本のページ（2/3）</div><h1>各章の開始ページ</h1>
@@ -1094,8 +1347,8 @@ function saveComplete() {
     }
     const p = prog(it.id), was = p.frac >= 1;
     const nf = Math.max(p.frac, reach / it.len);
-    p.frac = nf >= 0.9999 ? 1 : nf;
-    if (!was && p.frac >= 1) { p.u = sh.u[it.id] ?? 2; p.doneDate = t; newly.push(it.id); }
+    p.frac = nf >= 0.9999 ? 1 : nf; p.tf = nowMs();
+    if (!was && p.frac >= 1) { p.u = sh.u[it.id] ?? 2; p.tu = nowMs(); p.doneDate = t; newly.push(it.id); }
     const d = logRead(t, it.id, before);
     if (d > 0) delta[it.id] = d;
   });
@@ -1123,12 +1376,12 @@ function reviewHTML() {
 }
 function saveReview() {
   const sh = ui.sheet, t = today(), r = state.reviews.find(x => x.id === sh.id);
-  r.done = t;
+  r.done = t; r._t = nowMs();
   if (r.type === 'drill') {
     r.correct = clamp(Number($('#rv-correct').value) || 0, 0, 10);
     if (r.correct < 6) addReview('drill', r.target, addDays(t, 7), r.gen + 1);
   }
-  if (r.type === 'reread' && prog(r.target).u === 1) prog(r.target).u = 2;
+  if (r.type === 'reread' && prog(r.target).u === 1) { prog(r.target).u = 2; prog(r.target).tu = nowMs(); }
   addLog(t, Number($('#rv-min').value) || 0, 'review', reviewLabel(r));
   save(); closeSheet(); render();
   toast(r.type === 'drill' && r.correct < 6 ? '記録しました。7日後にもう一度入ります' : '記録しました');
@@ -1193,7 +1446,7 @@ function applyReschedule(to) {
   const p = makePlan(t, to, {main:trackDone('main'), sub:trackDone('sub')});
   Object.assign(p, origPace());
   state.plan = p;
-  s.targetDate = to;
+  s.targetDate = to; s._t = nowMs();
   save(); closeSheet(); render();
   toast(`${md(to)}までの計画に組み直しました`);
 }
@@ -1274,7 +1527,7 @@ function handleImportFile(file) {
       if (!obj || !obj.progress || !obj.settings) throw new Error('bad');
       pendingImport = obj;
       const n = Object.values(obj.progress).filter(p => p && p.frac >= 1).length;
-      confirmSheet('データを読み込む', `${obj.exportedAt ? `${jpDate(obj.exportedAt.slice(0, 10))}に書き出したデータ（読了${n}節）です。` : ''}今のデータはすべて置き換わります。`, '読み込む', 'import-ok', true);
+      confirmSheet('データを読み込む', `${obj.exportedAt ? `${jpDate(obj.exportedAt.slice(0, 10))}に書き出したデータ（読了${n}節）です。` : ''}今のデータはすべて置き換わります。${syncCfg ? '同期しているほかの端末にも、この内容が反映されます。' : ''}`, '読み込む', 'import-ok', true);
     } catch (e) { toast('このファイルは読み込めませんでした'); }
   };
   rd.readAsText(file);
@@ -1301,18 +1554,18 @@ const actions = {
   'open-sec':el => openSection(el.dataset.id),
   'sec-u':el => {
     const id = ui.sheet.id, p = prog(id), v = Number(el.dataset.v);
-    if (isDone(id)) { p.u = v; if (v === 1) ensureReread(id, today()); save(); render(); refreshSheet(sectionHTML()); toast('理解度を変えました'); }
-    else { p.u = v; refreshSheet(sectionHTML()); }
+    if (isDone(id)) { p.u = v; p.tu = nowMs(); if (v === 1) ensureReread(id, today()); save(); render(); refreshSheet(sectionHTML()); toast('理解度を変えました'); }
+    else { p.u = v; p.tu = nowMs(); refreshSheet(sectionHTML()); }
   },
   'sec-done':() => {
     const id = ui.sheet.id, p = prog(id), t = today(), before = readPages(id);
-    p.frac = 1; p.u = p.u ?? 2; p.doneDate = t;
+    p.frac = 1; p.u = p.u ?? 2; p.doneDate = t; p.tf = p.tu = nowMs();
     logRead(t, id, before);
     afterSectionsDone([id], t);
     save(); render(); refreshSheet(sectionHTML()); toast('読了にしました');
   },
-  'sec-unread':() => { const id = ui.sheet.id, p = prog(id), before = readPages(id); p.frac = 0; p.u = null; p.doneDate = null; logRead(today(), id, before); save(); render(); refreshSheet(sectionHTML()); toast('未読に戻しました'); },
-  'sec-memo':() => { prog(ui.sheet.id).memo = $('#sec-memo').value; save(); render(); closeSheet(); toast('メモを保存しました'); },
+  'sec-unread':() => { const id = ui.sheet.id, p = prog(id), before = readPages(id); p.frac = 0; p.u = null; p.doneDate = null; p.tf = p.tu = nowMs(); logRead(today(), id, before); save(); render(); refreshSheet(sectionHTML()); toast('未読に戻しました'); },
+  'sec-memo':() => { const p = prog(ui.sheet.id); p.memo = $('#sec-memo').value; p.tm = nowMs(); save(); render(); closeSheet(); toast('メモを保存しました'); },
   reschedule:() => openReschedule(),
   'rs-apply':el => applyReschedule(el.dataset.to),
   'rebuild-baseline':() => confirmSheet('開始日から作り直す', '開始日と目標日はそのままで、最初の計画を作り直します。読んだ記録は残ります。', '作り直す', 'rebuild-baseline-ok'),
@@ -1325,13 +1578,13 @@ const actions = {
     save(); closeSheet(); render(); toast('記録しました');
   },
   'del-log':el => confirmSheet('記録を消す', 'この学習時間の記録を消します。', '消す', 'del-log-ok', true, `data-id="${el.dataset.id}"`),
-  'del-log-ok':el => { state.logs = state.logs.filter(l => l.id !== el.dataset.id); save(); closeSheet(); render(); },
+  'del-log-ok':el => { state.logs = state.logs.filter(l => l.id !== el.dataset.id); state.deleted.logs.push(el.dataset.id); save(); closeSheet(); render(); },
   'add-exam':el => openAddExam(el.dataset.kind),
   'ex-kind':el => { ui.sheet.ek = el.dataset.v; examSheet(); },
   'ex-save':() => saveExam(),
   'del-exam':el => confirmSheet('結果を消す', 'この過去問の結果を消します（学習時間の記録は残ります）。', '消す', 'del-exam-ok', true, `data-id="${el.dataset.id}"`),
-  'del-exam-ok':el => { state.exams = state.exams.filter(x => x.id !== el.dataset.id); save(); closeSheet(); render(); },
-  'mark-applied':() => { state.settings.applied = today(); save(); render(); toast('受験日を予約したら、設定で日付を直してください', 3500); },
+  'del-exam-ok':el => { state.exams = state.exams.filter(x => x.id !== el.dataset.id); state.deleted.exams.push(el.dataset.id); save(); closeSheet(); render(); },
+  'mark-applied':() => { state.settings.applied = today(); state.settings._t = nowMs(); save(); render(); toast('受験日を予約したら、設定で日付を直してください', 3500); },
   'save-dates':() => {
     const r = readDatesForm('d_');
     if (!r.ok) { $('#d_err').innerHTML = `<div class="err">${r.error}</div>`; return; }
@@ -1339,31 +1592,49 @@ const actions = {
     const planChanged = r.startDate !== s.startDate || r.targetDate !== s.targetDate || r.adjustWeekday !== s.adjustWeekday;
     if (r.targetDate !== s.targetDate) s.baseTargetDate = r.targetDate;
     Object.assign(s, {startDate:r.startDate, targetDate:r.targetDate, examA:r.examA, examB:r.examB, examConfirmed:r.examConfirmed, adjustWeekday:r.adjustWeekday, goalWeekday:r.goalWeekday, goalHoliday:r.goalHoliday});
+    s._t = nowMs();
     if (planChanged) rebuildPlan('fromToday');
     save(); render(); toast(planChanged ? '保存して計画を組み直しました' : '保存しました');
   },
   'save-pages':() => {
     const r = readPagesForm('p_');
     if (!r.ok) { $('#p_err').innerHTML = `<div class="err">${r.error}</div>`; return; }
-    Object.assign(state.settings, {chapterStart:r.chapterStart, bodyEnd:r.bodyEnd, sectionStart:r.sectionStart});
+    Object.assign(state.settings, {chapterStart:r.chapterStart, bodyEnd:r.bodyEnd, sectionStart:r.sectionStart, _t:nowMs()});
     rebuildPlan('baseline');
     save(); render(); toast(r.empty ? 'ページ未設定（節の数で計画）にしました' : 'ページを保存して計画を作り直しました');
   },
   'save-weights':() => {
     CHAPTERS.forEach(c => { const el = document.getElementById(`w_${c.no}`); if (el) state.settings.chapterLevel[c.no] = el.value; });
+    state.settings._t = nowMs();
     rebuildPlan('fromToday');
     save(); render(); toast('重さを保存して、今日から組み直しました');
   },
+  'sync-connect':() => connectSync('sy_', false),
+  'sync-now':async () => { await syncNow(); toast(syncUI.status === 'ok' ? '同期しました' : (syncUI.msg || '同期できませんでした'), 3000); },
+  'sync-disconnect':() => confirmSheet('この端末の同期をやめる', 'この端末に入っている記録は残ります。GitHubのデータもそのまま残るので、あとで接続し直せます。', '同期をやめる', 'sync-disconnect-ok'),
+  'sync-disconnect-ok':() => { syncCfg = null; kvSet('sync', null); setSyncStatus('idle'); closeSheet(); render(); toast('この端末の同期をやめました'); },
+  'goto-sync':() => { ui.tab = 'settings'; closeSheet(); render(); setTimeout(() => { const c = $('#sync-card'); if (c) c.scrollIntoView({block:'start'}); }, 30); },
+  'setup-sync':() => { ui.setupStep = 'sync'; render(); window.scrollTo(0, 0); },
+  'setup-sync-back':() => { ui.setupStep = 1; render(); window.scrollTo(0, 0); },
+  'setup-sync-connect':() => connectSync('ws_', true),
   export:() => exportData(),
   import:() => { const f = $('#importFile'); f.value = ''; f.click(); },
   'import-ok':() => {
     if (!pendingImport) return;
     state = normalize(pendingImport); state.meta.setupDone = true; pendingImport = null;
     refreshLayout(); if (!state.plan || !state.plan.weights) rebuildPlan(anyProgress() ? 'fromToday' : 'baseline');
+    if (syncCfg) {
+      // 読み込んだ内容をほかの端末にも行き渡らせる（時刻を今にして、同期では上書きで送る）
+      const tnow = nowMs();
+      Object.values(state.progress).forEach(p => { p.tf = p.tu = p.tm = tnow; });
+      state.settings._t = tnow; state.reviews.forEach(r => { r._t = tnow; });
+      if (state.plan) state.plan.createdAt = new Date().toISOString();
+      syncCfg.force = true; kvSet('sync', syncCfg);
+    }
     save(); closeSheet(); ui.tab = 'today'; render(); toast('読み込みました');
   },
-  reset:() => confirmSheet('すべてのデータを消す', '読んだ記録・学習時間・過去問・設定がすべて消えます。先に書き出しておくことをおすすめします。', 'すべて消す', 'reset-ok', true),
-  'reset-ok':() => { state = freshState(); ui.setupStep = 1; ui.tab = 'today'; refreshLayout(); save(); closeSheet(); render(); },
+  reset:() => confirmSheet('すべてのデータを消す', `この端末の、読んだ記録・学習時間・過去問・設定がすべて消えます。先に書き出しておくことをおすすめします。${syncCfg ? 'この端末の同期設定も外れます（GitHubのデータは残るので、接続し直せば戻せます）。' : ''}`, 'すべて消す', 'reset-ok', true),
+  'reset-ok':() => { if (syncCfg) { syncCfg = null; kvSet('sync', null); } state = freshState(); ui.setupStep = 1; ui.tab = 'today'; refreshLayout(); save(); closeSheet(); render(); },
   'setup-next':() => { ui.setupStep = 2; render(); window.scrollTo(0, 0); },
   'setup-back':() => { ui.setupStep = 2; render(); window.scrollTo(0, 0); },
   'setup-pages':() => {
@@ -1378,6 +1649,7 @@ const actions = {
     const r = readDatesForm('s_');
     if (!r.ok) { $('#s_err2').innerHTML = `<div class="err">${r.error}</div>`; return; }
     Object.assign(state.settings, {startDate:r.startDate, targetDate:r.targetDate, baseTargetDate:r.targetDate, examA:r.examA, examB:r.examB, examConfirmed:r.examConfirmed, adjustWeekday:r.adjustWeekday, goalWeekday:r.goalWeekday, goalHoliday:r.goalHoliday});
+    state.settings._t = nowMs();
     rebuildPlan('baseline');
     state.meta.setupDone = true;
     requestPersist();
@@ -1405,7 +1677,14 @@ document.addEventListener('input', e => {
 });
 $('#backdrop').addEventListener('click', closeSheet);
 $('#importFile').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) handleImportFile(f); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') render(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!inputFocused()) render();
+  if (syncCfg && nowMs() - syncUI.lastAttempt > 15000) syncNow();
+});
+window.addEventListener('online', () => { if (syncCfg) syncNow(); });
+document.addEventListener('focusout', () => setTimeout(() => { if (syncUI.needRender && !ui.sheet && !inputFocused()) { syncUI.needRender = false; render(); } }, 400));
+setInterval(() => { if (syncCfg && document.visibilityState === 'visible') syncNow(); }, 120000);
 
 function requestPersist() {
   if (navigator.storage && navigator.storage.persist) {
@@ -1420,7 +1699,9 @@ function requestPersist() {
   if (!loaded && today() > state.settings.startDate && today() < state.settings.targetDate) state.settings.startDate = today();
   refreshLayout();
   if (state.meta.setupDone && (!state.plan || !state.plan.weights)) rebuildPlan(state.plan && anyProgress() ? 'fromToday' : 'baseline');
+  syncCfg = await kvGet('sync');
   render();
+  if (syncCfg) syncNow();
   if (state.meta.setupDone && navigator.storage && navigator.storage.persisted) {
     navigator.storage.persisted().then(v => { if (v !== state.meta.persisted) { state.meta.persisted = v; save(); if (ui.tab === 'settings') render(); } }).catch(() => {});
   }

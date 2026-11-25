@@ -1,6 +1,6 @@
 // 応用情報 学習管理：オフライン用 Service Worker
 // アプリを更新するときは VERSION を上げる（古いキャッシュが入れ替わる）
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 const CACHE = `ap-study-${VERSION}`;
 const ASSETS = [
   './',

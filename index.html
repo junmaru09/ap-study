@@ -210,14 +210,14 @@ body.setup #tabs{display:none}
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 <script>
 'use strict';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 /* ========== 教本マスタ（令和08年 応用情報技術者 合格教本） ========== */
 const CHAPTERS = [
   {no:1, title:'基礎理論', track:'main', sections:['集合と論理','情報量と符号化','オートマトン','形式言語','グラフ理論','確率と統計','回帰分析','数値計算','AI（人工知能）']},
   {no:2, title:'アルゴリズムとプログラミング', track:'main', sections:['リスト','スタックとキュー','木構造','探索アルゴリズム','整列アルゴリズム','再帰法','プログラム言語']},
   {no:3, title:'ハードウェアとコンピュータ構成要素', track:'main', sections:['ハードウェア','プロセッサアーキテクチャ','プロセッサの高速化技術','メモリアーキテクチャ','入出力アーキテクチャ']},
-  {no:4, title:'システム構成要素', track:'main', sections:['システムの処理形態','クライアントサーバシステム','システムの構成と信頼性設計','高信頼性・高性能システム','ストレージ関連技術','仮想化技術','システムの性能特性と評価','待ち行列理論の適用']},
+  {no:4, title:'システム構成要素', track:'main', sections:['システムの処理形態','クライアントサーバシステム','システムの構成と信頼性設計','高信頼性・高性能システム','ストレージ関連技術','仮想化技術','システムの性能特性と評価','待ち行列理論の適用','システムの信頼性特性と評価']},
   {no:5, title:'ソフトウェア', track:'main', sections:['OSの構成と機能','タスク（プロセス）管理','記憶管理','言語処理ツール','開発ツール','UNIX系OS']},
   {no:6, title:'データベース', track:'main', sections:['データベース設計','関係データベース','正規化','関係データベースの演算','SQL','データ定義言語','埋込み方式','データベース管理システム','分散データベース','データベース応用','ブロックチェーン']},
   {no:7, title:'ネットワーク', track:'main', sections:['通信プロトコルの標準化','ネットワーク接続装置と関連技術','データリンク層の制御とプロトコル','ネットワーク層のプロトコルと技術','トランスポート層のプロトコル','アプリケーション層のプロトコル','ネットワークの仮想化技術','無線LAN','通信規格・通信技術']},
@@ -238,6 +238,7 @@ const PM_FIELDS = ['情報セキュリティ','経営戦略','プログラミン
 const CAT_LABEL = {main:'メイン', sub:'サブ', review:'復習', am:'午前', pm:'午後', other:'その他'};
 const APPLY_FROM = '2027-01-27', APPLY_TO = '2027-02-16';
 const VIRTUAL_LEN = 10; // ページ未設定時の1節あたりの仮の分量
+const MASTER_VERSION = 2; // 教本マスタを直したら上げる（計画を組み直す）
 const SNAP = 3;         // 節の残りがこのページ数以下なら同じ日に読み切る
 const EPS = 0.01;
 // 章ごとの重さ：丁寧に読む章ほど1日のページ数を少なくする
@@ -516,7 +517,7 @@ async function syncNow(opts = {}) {
       merged.meta.lastMinutes = state.meta.lastMinutes || {};
       const changed = stable(sharedState(state)) !== mergedKey;
       state = merged;
-      if (changed) { refreshLayout(); await saveLocal(); safeRender(); }
+      if (changed) { refreshLayout(); if (state.meta.setupDone && state.plan && state.plan.mv !== MASTER_VERSION) rebuildPlan(anyProgress() ? 'fromToday' : 'baseline'); await saveLocal(); safeRender(); }
       syncCfg.force = false; syncCfg.lastSync = new Date().toISOString(); syncCfg.lastError = null;
       await kvSet('sync', syncCfg);
       ok = true;
@@ -713,7 +714,7 @@ function snapOffset(tr, c, prev) {
 }
 function makePlan(from, to, base) {
   const days = planDays(from, to, state.settings.adjustWeekday);
-  const plan = {createdAt:new Date().toISOString(), from, to, days, base:{...base}, tracks:{}, origAvg:null, origAvgPages:null, weights:{...layout.weights}};
+  const plan = {createdAt:new Date().toISOString(), from, to, days, base:{...base}, tracks:{}, origAvg:null, origAvgPages:null, weights:{...layout.weights}, mv:MASTER_VERSION};
   for (const tr of ['main', 'sub']) {
     const total = layout.track[tr].total, b = Math.min(base[tr] || 0, total), rem = total - b, N = days.length;
     const cum = [];
@@ -1698,7 +1699,7 @@ function requestPersist() {
   state = loaded ? normalize(loaded) : freshState();
   if (!loaded && today() > state.settings.startDate && today() < state.settings.targetDate) state.settings.startDate = today();
   refreshLayout();
-  if (state.meta.setupDone && (!state.plan || !state.plan.weights)) rebuildPlan(state.plan && anyProgress() ? 'fromToday' : 'baseline');
+  if (state.meta.setupDone && (!state.plan || !state.plan.weights || state.plan.mv !== MASTER_VERSION)) { rebuildPlan(state.plan && anyProgress() ? 'fromToday' : 'baseline'); state.settings._t = state.settings._t || 1; save(); }
   syncCfg = await kvGet('sync');
   render();
   if (syncCfg) syncNow();
